@@ -1,6 +1,9 @@
 package parser
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type tokenKind int
 
@@ -19,10 +22,48 @@ const (
 	tokBoost // ^1.5 -> val holds "1.5"
 )
 
+func (k tokenKind) String() string {
+	switch k {
+	case tokEOF:
+		return "end of input"
+	case tokTerm:
+		return "term"
+	case tokPhrase:
+		return "phrase"
+	case tokField:
+		return "field"
+	case tokLParen:
+		return "'('"
+	case tokRParen:
+		return "')'"
+	case tokAnd:
+		return "AND"
+	case tokOr:
+		return "OR"
+	case tokNot:
+		return "NOT"
+	case tokPlus:
+		return "'+'"
+	case tokMinus:
+		return "'-'"
+	case tokBoost:
+		return "boost"
+	}
+	return fmt.Sprintf("tokenKind(%d)", int(k))
+}
+
 type token struct {
 	kind tokenKind
 	val  string
 	pos  int // byte offset, for error messages
+}
+
+// String renders the token for error messages, e.g. `term "foo"` or `AND`.
+func (t token) String() string {
+	if t.val != "" {
+		return fmt.Sprintf("%s %q", t.kind, t.val)
+	}
+	return t.kind.String()
 }
 
 func lex(s string) ([]token, error) {
@@ -31,7 +72,7 @@ func lex(s string) ([]token, error) {
 	for i < len(s) {
 		c := s[i]
 		switch c {
-		case ' ', '\t':
+		case ' ', '\t', '\n', '\r', '\v', '\f':
 			i++
 		case '(':
 			toks = append(toks, token{tokLParen, "", i})
@@ -54,16 +95,28 @@ func lex(s string) ([]token, error) {
 			i = j
 		case '"':
 			j := i + 1
-			for j < len(s) && s[j] != '"' {
+			var b strings.Builder
+			closed := false
+			for j < len(s) {
 				if s[j] == '\\' {
-					j++
-				} // skip escaped char
+					if j+1 >= len(s) {
+						break // trailing backslash: unclosed
+					}
+					b.WriteByte(s[j+1])
+					j += 2
+					continue
+				}
+				if s[j] == '"' {
+					closed = true
+					break
+				}
+				b.WriteByte(s[j])
 				j++
 			}
-			if j >= len(s) {
-				return nil, fmt.Errorf("unclosed quote at %d", i)
+			if !closed {
+				return nil, &Error{Pos: i, Msg: "unclosed quote"}
 			}
-			toks = append(toks, token{tokPhrase, s[i+1 : j], i})
+			toks = append(toks, token{tokPhrase, b.String(), i})
 			i = j + 1
 		default: // a word
 			j := i
@@ -86,7 +139,7 @@ func lex(s string) ([]token, error) {
 				toks = append(toks, token{tokNot, "", i})
 			default:
 				k := j
-				for k < len(s) && s[k] == ' ' {
+				for k < len(s) && isSpace(s[k]) {
 					k++
 				} // allow "title : foo"
 				if k < len(s) && s[k] == ':' {
@@ -106,10 +159,18 @@ func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
 }
 
-func isSpecial(c byte) bool {
+func isSpace(c byte) bool {
 	switch c {
-	case ' ', '\t', '(', ')', '"', '^', '+', '-', ':':
+	case ' ', '\t', '\n', '\r', '\v', '\f':
 		return true
 	}
 	return false
+}
+
+func isSpecial(c byte) bool {
+	switch c {
+	case '(', ')', '"', '^', '+', '-', ':':
+		return true
+	}
+	return isSpace(c)
 }

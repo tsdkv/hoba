@@ -45,8 +45,18 @@ func TestLex(t *testing.T) {
 			{kind: tokEOF, pos: 11},
 		},
 		`"say \"hi\""`: {
-			{tokPhrase, `say \"hi\"`, 0},
+			{tokPhrase, `say "hi"`, 0},
 			{kind: tokEOF, pos: 12},
+		},
+		"foo\nbar": {
+			{tokTerm, "foo", 0},
+			{tokTerm, "bar", 4},
+			{kind: tokEOF, pos: 7},
+		},
+		"title\t:x": {
+			{tokField, "title", 0},
+			{tokTerm, "x", 7},
+			{kind: tokEOF, pos: 8},
 		},
 		"foo^2.5": {
 			{tokTerm, "foo", 0},
@@ -84,7 +94,9 @@ func TestLex(t *testing.T) {
 }
 
 func TestLexUnclosedQuote(t *testing.T) {
-	if _, err := lex(`"unclosed`); err == nil {
-		t.Fatal("lex() expected error for unclosed quote, got nil")
+	for _, input := range []string{`"unclosed`, `"trailing\`} {
+		if _, err := lex(input); err == nil {
+			t.Errorf("lex(%q) expected error for unclosed quote, got nil", input)
+		}
 	}
 }
