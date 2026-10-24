@@ -2,21 +2,25 @@ package schema
 
 import "fmt"
 
+// FieldType identifies the kind of value a field holds.
 type FieldType int
 
 const (
+	// FieldTypeText is string data for full-text or keyword search.
 	FieldTypeText FieldType = iota
+	// FieldTypeInt64 is a signed 64-bit integer.
 	FieldTypeInt64
 )
 
-func FiledTypeStr(ft FieldType) string {
+// String returns the field type's name; unknown values print as FieldType(N).
+func (ft FieldType) String() string {
 	switch ft {
 	case FieldTypeText:
 		return "text"
 	case FieldTypeInt64:
 		return "int64"
 	default:
-		panic(fmt.Sprintf("unknown field type: %d", ft))
+		return fmt.Sprintf("FieldType(%d)", int(ft))
 	}
 }
 

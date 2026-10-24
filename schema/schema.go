@@ -31,6 +31,11 @@ func NewSchema(fields ...Field) (*Schema, error) {
 func (s *Schema) index() error {
 	s.byName = make(map[string]int, len(s.Fields))
 	for i, f := range s.Fields {
+		// IDs are the on-disk name<->ID decoder key: a hand-edited or
+		// corrupted meta.json with non-dense IDs must not load silently.
+		if f.ID != i {
+			return fmt.Errorf("schema: field %q has ID %d, want %d", f.Name, f.ID, i)
+		}
 		if f.Name == "" {
 			return fmt.Errorf("schema: field %d has empty name", i)
 		}
@@ -48,6 +53,7 @@ func (s *Schema) index() error {
 	return nil
 }
 
+// Field returns the field with the given name.
 func (s *Schema) Field(name string) (Field, bool) {
 	i, ok := s.byName[name]
 	if !ok {
@@ -56,6 +62,7 @@ func (s *Schema) Field(name string) (Field, bool) {
 	return s.Fields[i], true
 }
 
+// FieldByID returns the field with the given ID.
 func (s *Schema) FieldByID(id int) (Field, bool) {
 	if id < 0 || id >= len(s.Fields) {
 		return Field{}, false
@@ -63,6 +70,7 @@ func (s *Schema) FieldByID(id int) (Field, bool) {
 	return s.Fields[id], true
 }
 
+// UnmarshalJSON loads a persisted schema and revalidates its invariants.
 func (s *Schema) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		Fields []Field `json:"fields"`

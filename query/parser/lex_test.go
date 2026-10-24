@@ -53,6 +53,11 @@ func TestLex(t *testing.T) {
 			{tokTerm, "bar", 4},
 			{kind: tokEOF, pos: 7},
 		},
+		"a　b": { // U+3000 ideographic space separates
+			{tokTerm, "a", 0},
+			{tokTerm, "b", 4},
+			{kind: tokEOF, pos: 5},
+		},
 		"title\t:x": {
 			{tokField, "title", 0},
 			{tokTerm, "x", 7},
@@ -63,17 +68,31 @@ func TestLex(t *testing.T) {
 			{tokBoost, "2.5", 3},
 			{kind: tokEOF, pos: 7},
 		},
-		"bo*": {
-			{tokTerm, "bo*", 0},
-			{kind: tokEOF, pos: 3},
-		},
 		"NOTa": {
 			{tokTerm, "NOTa", 0},
 			{kind: tokEOF, pos: 4},
 		},
-		":": {
-			{tokTerm, ":", 0},
-			{kind: tokEOF, pos: 1},
+		// + and - are literal inside a word
+		"c++": {
+			{tokTerm, "c++", 0},
+			{kind: tokEOF, pos: 3},
+		},
+		"2024-01-01": {
+			{tokTerm, "2024-01-01", 0},
+			{kind: tokEOF, pos: 10},
+		},
+		// escapes produce the unescaped word; an escaped word is never a keyword
+		`foo\:bar`: {
+			{tokTerm, "foo:bar", 0},
+			{kind: tokEOF, pos: 8},
+		},
+		`\AND`: {
+			{tokTerm, "AND", 0},
+			{kind: tokEOF, pos: 4},
+		},
+		`a\ b`: {
+			{tokTerm, "a b", 0},
+			{kind: tokEOF, pos: 4},
 		},
 		"": {
 			{kind: tokEOF, pos: 0},
@@ -93,10 +112,33 @@ func TestLex(t *testing.T) {
 	}
 }
 
-func TestLexUnclosedQuote(t *testing.T) {
-	for _, input := range []string{`"unclosed`, `"trailing\`} {
-		if _, err := lex(input); err == nil {
-			t.Errorf("lex(%q) expected error for unclosed quote, got nil", input)
-		}
+func TestLexErrors(t *testing.T) {
+	tests := map[string]int{ // input -> error position
+		`"unclosed`:  0,
+		`"trailing\`: 0,
+		"a\xffb":     1,
+		"bo*":        2,
+		"a~2":        1,
+		"{x}":        0,
+		":":          0,
+		`a\`:         1,
+		"foo^":       3,
+		"foo^1.2.3":  3,
+		"foo^2bar":   3,
+	}
+	for input, pos := range tests {
+		t.Run(input, func(t *testing.T) {
+			_, err := lex(input)
+			if err == nil {
+				t.Fatalf("lex(%q) expected error, got nil", input)
+			}
+			pe, ok := err.(*Error)
+			if !ok {
+				t.Fatalf("lex(%q) error type = %T, want *Error", input, err)
+			}
+			if pe.Pos != pos {
+				t.Errorf("lex(%q) error Pos = %d, want %d", input, pe.Pos, pos)
+			}
+		})
 	}
 }

@@ -17,10 +17,40 @@ const (
 )
 
 // Node is one AST node produced by Parse: *Term, *Phrase, *Boost or *Clause.
-type Node interface{ node() }
+// Walking the tree is a type switch over those four types.
+type Node interface {
+	// Pos is the byte offset where the node starts in the query string.
+	Pos() int
+	// String renders the node in canonical syntax that re-parses to the
+	// same tree.
+	String() string
+	node()
+}
+
+// Term is a single word.
+type Term struct {
+	Start int    // byte offset, including the field prefix
+	Field string // "" = default fields
+	Text  string // unescaped
+}
+
+// Phrase is a quoted string. Text is unescaped; run the field's analyzer
+// over it.
+type Phrase struct {
+	Start int    // byte offset, including the field prefix
+	Field string // "" = default fields
+	Text  string // unescaped
+}
+
+// Boost multiplies its child's score by Factor.
+type Boost struct {
+	Node   Node
+	Factor float64
+}
 
 // Clause is a boolean combination of child nodes.
 type Clause struct {
+	Start    int // byte offset of the first operand, including its + / - / NOT
 	Children []OccurNode
 }
 
@@ -30,24 +60,20 @@ type OccurNode struct {
 	Node  Node
 }
 
-// Term is a single word.
-type Term struct {
-	Field string // "" = default fields
-	Text  string
-}
+// Pos returns the term's byte offset.
+func (t *Term) Pos() int { return t.Start }
 
-type Phrase struct {
-	Field string
-	Text  string // unescaped text; run the field tokenizer over it
-}
+// Pos returns the phrase's byte offset.
+func (p *Phrase) Pos() int { return p.Start }
 
-// Boost multiplies its child's score by Factor.
-type Boost struct {
-	Node   Node
-	Factor float64
-}
+// Pos returns the child node's byte offset: a boost adds no text of its own
+// before the child.
+func (b *Boost) Pos() int { return b.Node.Pos() }
 
-func (*Clause) node() {}
+// Pos returns the clause's byte offset.
+func (c *Clause) Pos() int { return c.Start }
+
 func (*Term) node()   {}
 func (*Phrase) node() {}
 func (*Boost) node()  {}
+func (*Clause) node() {}
