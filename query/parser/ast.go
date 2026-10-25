@@ -60,17 +60,14 @@ type OccurNode struct {
 	Node  Node
 }
 
-// Pos returns the term's byte offset.
 func (t *Term) Pos() int { return t.Start }
 
-// Pos returns the phrase's byte offset.
 func (p *Phrase) Pos() int { return p.Start }
 
 // Pos returns the child node's byte offset: a boost adds no text of its own
 // before the child.
 func (b *Boost) Pos() int { return b.Node.Pos() }
 
-// Pos returns the clause's byte offset.
 func (c *Clause) Pos() int { return c.Start }
 
 func (*Term) node()   {}

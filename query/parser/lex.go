@@ -176,7 +176,6 @@ func lexWord(s string, i int) (token, int, error) {
 			return token{tokNot, "", i}, j, nil
 		}
 	}
-	// a word followed by optional whitespace and ':' is a field name
 	k := j
 	for k < len(s) {
 		r, size := utf8.DecodeRuneInString(s[k:])

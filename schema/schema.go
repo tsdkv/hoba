@@ -53,7 +53,6 @@ func (s *Schema) index() error {
 	return nil
 }
 
-// Field returns the field with the given name.
 func (s *Schema) Field(name string) (Field, bool) {
 	i, ok := s.byName[name]
 	if !ok {
@@ -62,7 +61,6 @@ func (s *Schema) Field(name string) (Field, bool) {
 	return s.Fields[i], true
 }
 
-// FieldByID returns the field with the given ID.
 func (s *Schema) FieldByID(id int) (Field, bool) {
 	if id < 0 || id >= len(s.Fields) {
 		return Field{}, false

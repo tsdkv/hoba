@@ -18,7 +18,6 @@ type Token struct {
 	End      int    // byte offset just past the token
 }
 
-// Tokenizer splits text into tokens.
 type Tokenizer interface {
 	Tokens(text string) iter.Seq[Token]
 }
@@ -27,7 +26,6 @@ type Tokenizer interface {
 // everything else (including invalid UTF-8 bytes) is a separator.
 type Simple struct{}
 
-// Tokens implements Tokenizer.
 func (Simple) Tokens(text string) iter.Seq[Token] {
 	return func(yield func(Token) bool) {
 		pos, start := 0, -1
@@ -60,7 +58,6 @@ func (Simple) Tokens(text string) iter.Seq[Token] {
 // Keyword emits the whole input as a single token, case kept.
 type Keyword struct{}
 
-// Tokens implements Tokenizer.
 func (Keyword) Tokens(text string) iter.Seq[Token] {
 	return func(yield func(Token) bool) {
 		if text != "" {
@@ -72,7 +69,6 @@ func (Keyword) Tokens(text string) iter.Seq[Token] {
 // Filter rewrites one token, or drops it by returning keep=false.
 type Filter func(Token) (tok Token, keep bool)
 
-// LowerCase lowercases the token text.
 func LowerCase(tok Token) (Token, bool) {
 	tok.Text = strings.ToLower(tok.Text)
 	return tok, true
@@ -100,7 +96,6 @@ func NewAnalyzer(t Tokenizer, filters ...Filter) *Analyzer {
 	return &Analyzer{tokenizer: t, filters: filters}
 }
 
-// Tokens implements Tokenizer.
 func (a *Analyzer) Tokens(text string) iter.Seq[Token] {
 	return func(yield func(Token) bool) {
 		for tok := range a.tokenizer.Tokens(text) {

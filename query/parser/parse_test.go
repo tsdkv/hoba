@@ -23,7 +23,6 @@ func TestParseString(t *testing.T) {
 		{"a AND b OR c", "(a AND b) OR c"},
 		{"a b OR c", "a (b OR c)"},
 
-		// prefixes
 		{"+a -b", "a AND -b"},
 		{"a NOT b", "a -b"},
 		{"a AND NOT b", "a AND -b"},
@@ -33,24 +32,20 @@ func TestParseString(t *testing.T) {
 		{"x OR -a AND b", "x OR (-a AND b)"},
 		{"a OR +b", "a OR +b"},
 
-		// groups
 		{"(a b) AND c", "(a b) AND c"},
 		{"(a OR b) c", "(a OR b) c"},
 		{"-(a b)", "-(a b)"},
 
-		// fields
 		{"title:foo", "title:foo"},
 		{"title : hello", "title:hello"},
 		{"title\t:x", "title:x"},
 		{"title:(a b:c)", "title:a b:c"},
 		{"field:(+a b)", "+field:a field:b"},
 
-		// phrases
 		{`"quick fox"`, `"quick fox"`},
 		{`"say \"hi\""`, `"say \"hi\""`},
 		{`""`, `""`},
 
-		// boosts
 		{`"quick fox"^2`, `"quick fox"^2`},
 		{"(a b)^2", "(a b)^2"},
 		{"(a OR b)^2 AND c", "(a OR b)^2 AND c"},
@@ -84,7 +79,6 @@ func TestParseString(t *testing.T) {
 			if got := n.String(); got != tc.want {
 				t.Errorf("Parse(%q).String() = %q, want %q", tc.in, got, tc.want)
 			}
-			// the canonical form must re-parse to the same tree
 			n2, err := Parse(tc.want)
 			if err != nil {
 				t.Fatalf("canonical form %q fails to parse: %v", tc.want, err)

@@ -8,7 +8,6 @@ type FieldType int
 const (
 	// FieldTypeText is string data for full-text or keyword search.
 	FieldTypeText FieldType = iota
-	// FieldTypeInt64 is a signed 64-bit integer.
 	FieldTypeInt64
 )
 
@@ -47,7 +46,8 @@ func Stored() FieldOption        { return func(f *Field) { f.Stored = true } }
 func Fast() FieldOption          { return func(f *Field) { f.Fast = true } }
 func WithPositions() FieldOption { return func(f *Field) { f.Positions = true } }
 
-// Keyword makes a text field index as one whole token (no splitting).
+// Keyword makes a text field index as one whole token (no splitting)
+// and drops positions.
 func Keyword() FieldOption {
 	return func(f *Field) { f.Tokenizer = "keyword"; f.Positions = false }
 }
