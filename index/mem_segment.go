@@ -30,6 +30,7 @@ func NewMemSegment(s *schema.Schema, tm *tokenizer.Manager) *MemSegment {
 		schema:   s,
 		tm:       tm,
 		postings: map[termKey][]Posting{},
+		lens:     make([][]uint32, len(s.Fields)),
 		totals:   make([]uint64, len(s.Fields)),
 	}
 }
@@ -65,6 +66,11 @@ func (m *MemSegment) Add(doc schema.Document) (DocID, error) {
 	}
 
 	docID := DocID(m.NumDocs())
+	for fid, f := range m.schema.Fields {
+		if f.Type == schema.FieldTypeText && f.Indexed {
+			m.lens[fid] = append(m.lens[fid], 0)
+		}
+	}
 	for _, df := range doc.Fields {
 		f, _ := m.schema.FieldByID(df.Field) // validated above
 		if !f.Indexed {
@@ -80,7 +86,7 @@ func (m *MemSegment) Add(doc schema.Document) (DocID, error) {
 				m.appendPosting(termKey{f.ID, token.Text}, docID, uint32(token.Position), f.Positions)
 				n++
 			}
-			m.lens[f.ID] = append(m.lens[f.ID], n)
+			m.lens[f.ID][docID] = n
 			m.totals[f.ID] += uint64(n)
 		}
 	}
