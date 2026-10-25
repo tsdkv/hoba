@@ -49,9 +49,10 @@ func bruteForceTopK(hits []Hit, offset, k int) []Hit {
 
 func TestTopKPBT(t *testing.T) {
 	rapid.Check(t, func(rt *rapid.T) {
-		scores := rapid.SliceOfN(rapid.IntRange(0, 5), 0, 100).Draw(rt, "scores")
-		k := rapid.IntRange(-5, 20).Draw(rt, "k")
-		offset := rapid.IntRange(0, 30).Draw(rt, "offset")
+		n := rapid.IntRange(0, 100).Draw(rt, "n")
+		k := rapid.IntRange(-5, n+5).Draw(rt, "k")
+		offset := rapid.IntRange(0, n+10).Draw(rt, "offset")
+		scores := rapid.SliceOfN(rapid.IntRange(0, 5), n, n).Draw(rt, "scores")
 
 		hits := make([]Hit, len(scores))
 		for doc, s := range scores {
