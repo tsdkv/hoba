@@ -16,14 +16,11 @@ const (
 	manifestVersion = 1
 )
 
-// SegmentMeta is the manifest's record of one live segment.
 type SegmentMeta struct {
 	ID     string `json:"id"`
 	MaxDoc uint32 `json:"max_doc"`
 }
 
-// Manifest is the only mutable state in the engine: the list of live
-// segments plus the schema every segment was written against.
 type Manifest struct {
 	Version  int           `json:"version"`
 	Opstamp  uint64        `json:"opstamp"`
@@ -31,9 +28,6 @@ type Manifest struct {
 	Segments []SegmentMeta `json:"segments"`
 }
 
-// CreateIndex initializes a fresh index directory with the given schema.
-// Fails if a manifest already exists: schemas are immutable for the
-// lifetime of an index.
 func CreateIndex(dir string, sch *schema.Schema) (*Manifest, error) {
 	if _, err := os.Stat(filepath.Join(dir, manifestFile)); err == nil {
 		return nil, fmt.Errorf("index already exists in %s", dir)
@@ -47,7 +41,6 @@ func CreateIndex(dir string, sch *schema.Schema) (*Manifest, error) {
 	return m, nil
 }
 
-// OpenIndex loads the manifest of an existing index.
 func OpenIndex(dir string) (*Manifest, error) {
 	data, err := os.ReadFile(filepath.Join(dir, manifestFile))
 	if err != nil {
@@ -63,16 +56,12 @@ func OpenIndex(dir string) (*Manifest, error) {
 	return &m, nil
 }
 
-// Commit persists a new manifest state atomically, bumping the opstamp.
-// Crash at any point leaves either the old or the new manifest, never
-// a half-written one.
 func Commit(dir string, m *Manifest) error {
 	m.Opstamp++
 	return writeManifest(dir, m)
 }
 
-// writeManifest implements the commit protocol:
-// write tmp -> fsync file -> atomic rename -> fsync directory.
+// A crash mid-write must never leave a half-written manifest.
 func writeManifest(dir string, m *Manifest) error {
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {

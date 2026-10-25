@@ -9,15 +9,12 @@ import (
 	"github.com/tsdkv/hoba/tokenizer"
 )
 
-// resolver carries per-call state: the running clause count checked
-// against the limit.
 type resolver struct {
 	p       *Parser
 	clauses int
 }
 
-// node resolves one AST node. A nil Node means the subtree was dropped
-// because all its leaves analyzed to zero tokens.
+// A nil Node means the subtree was dropped (all leaves analyzed to zero tokens).
 func (r *resolver) node(n parser.Node) (Node, error) {
 	switch t := n.(type) {
 	case *parser.Term:
@@ -30,7 +27,7 @@ func (r *resolver) node(n parser.Node) (Node, error) {
 			return nil, err
 		}
 		if inner == nil {
-			return nil, nil // a boost of nothing is nothing
+			return nil, nil
 		}
 		return &Boost{Node: inner, Factor: t.Factor}, nil
 	case *parser.Clause:
@@ -40,10 +37,6 @@ func (r *resolver) node(n parser.Node) (Node, error) {
 	}
 }
 
-// clause resolves a boolean combination and applies the bottom-up rewrite:
-// dropped children disappear, an empty clause is itself dropped, an
-// all-negative clause gains a MatchAll Must child ("everything except"),
-// and a single Must/Should child is unwrapped.
 func (r *resolver) clause(c *parser.Clause) (Node, error) {
 	children := make([]OccurNode, 0, len(c.Children))
 	for _, ch := range c.Children {
@@ -67,6 +60,7 @@ func (r *resolver) clause(c *parser.Clause) (Node, error) {
 		}
 	}
 	if !positive {
+		// an all-negative clause matches nothing without a MatchAll child
 		children = append([]OccurNode{{Occur: OccurMust, Node: &MatchAll{}}}, children...)
 	}
 	if len(children) == 1 && children[0].Occur != OccurMustNot {
@@ -88,8 +82,6 @@ func (r *resolver) occur(o parser.Occur) Occur {
 	}
 }
 
-// leaf resolves one term or phrase leaf, expanding it over the default
-// fields when it carries no explicit field prefix.
 func (r *resolver) leaf(pos int, fieldName, text string, isPhrase bool) (Node, error) {
 	if fieldName != "" {
 		f, ok := r.p.s.Field(fieldName)
@@ -107,8 +99,7 @@ func (r *resolver) leaf(pos int, fieldName, text string, isPhrase bool) (Node, e
 	if len(r.p.defaultIDs) == 0 {
 		return nil, &Error{Pos: pos, Err: ErrNoField}
 	}
-	// OR the per-default-field results, skipping fields that cannot take
-	// the leaf; it is an error only if no default field can.
+	// A leaf is an error only when no default field can take it.
 	var children []Node
 	var firstNoPos error
 	for _, id := range r.p.defaultIDs {
@@ -142,10 +133,6 @@ func (r *resolver) leaf(pos int, fieldName, text string, isPhrase bool) (Node, e
 	return &Boolean{Children: or}, nil
 }
 
-// leafOnField analyzes text with the field's analyzer and builds the leaf:
-// zero tokens drop it, one token makes a Term, several make a Phrase when
-// the field has positions — otherwise an AND of the tokens for a bare
-// term, ErrNoPositions for a phrase.
 func (r *resolver) leafOnField(pos int, f schema.Field, text string, isPhrase bool) (Node, error) {
 	var toks []tokenizer.Token
 	for tok := range r.p.analyzers[f.ID].Tokens(text) {
@@ -185,7 +172,6 @@ func (r *resolver) leafOnField(pos int, f schema.Field, text string, isPhrase bo
 	return &Boolean{Children: children}, nil
 }
 
-// count charges one emitted Term or Phrase against the clause limit.
 func (r *resolver) count(pos int, f schema.Field) error {
 	r.clauses++
 	if r.clauses > r.p.maxClauses {

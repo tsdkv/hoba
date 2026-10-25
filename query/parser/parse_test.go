@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-// TestParseString runs each input through Parse and compares the canonical
-// printed form; the canonical form must re-parse to the same tree.
 func TestParseString(t *testing.T) {
 	tests := []struct{ in, want string }{
 		{"", ""},

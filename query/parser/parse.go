@@ -5,8 +5,6 @@ import (
 	"strconv"
 )
 
-// Error describes a query syntax problem. Pos is the byte offset into the
-// query string where the problem was found.
 type Error struct {
 	Pos int
 	Msg string
@@ -22,12 +20,9 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.Err }
 
-// maxDepth bounds nested parentheses so hostile input cannot overflow the
-// stack through deep recursion.
+// maxDepth bounds paren nesting so hostile input can't overflow the stack.
 const maxDepth = 64
 
-// Parse parses a Lucene-like query string into an AST.
-//
 // Grammar:
 //
 //	query   := orExpr+                    juxtaposition → OccurNone
@@ -69,8 +64,7 @@ type parser struct {
 	depth int
 }
 
-// peek returns the current token. Past the end it keeps returning the
-// final EOF token, so a miscounted caller can never index out of range.
+// peek keeps returning EOF past the end, so callers can't index out of range.
 func (p *parser) peek() token {
 	if p.pos >= len(p.toks) {
 		return p.toks[len(p.toks)-1]
@@ -86,18 +80,13 @@ func (p *parser) next() token {
 	return t
 }
 
-// operand is one parsed unit at a precedence level: the node plus the
-// explicit occur a +, - or NOT prefix gave it (OccurNone when undecided).
 type operand struct {
-	pos   int // start of the operand, including any + / - / NOT prefix
+	pos   int
 	occur Occur
 	node  Node
 }
 
-// parseQuery parses juxtaposed operands, the loosest level, whose undecided
-// occur is OccurNone. It is where a query must stand alone — the top level
-// and inside parentheses — so a single operand with an explicit occur is
-// kept in a one-child Clause instead of losing its prefix.
+// A lone operand with an explicit occur keeps its prefix in a one-child Clause.
 func (p *parser) parseQuery(field string) (Node, error) {
 	if !startsOperand(p.peek()) {
 		// an empty query or group is valid and matches nothing
@@ -113,21 +102,15 @@ func (p *parser) parseQuery(field string) (Node, error) {
 	return &Clause{Start: op.pos, Children: []OccurNode{{Occur: op.occur, Node: op.node}}}, nil
 }
 
-// parseOr parses andExpr operands joined by OR.
 func (p *parser) parseOr(field string) (operand, error) {
 	return p.level(p.parseAnd, tokOr, OccurShould, field)
 }
 
-// parseAnd parses unary operands joined by AND.
 func (p *parser) parseAnd(field string) (operand, error) {
 	return p.level(p.parseUnary, tokAnd, OccurMust, field)
 }
 
-// level parses one or more sub-operands joined by sep (tokEOF means
-// juxtaposition). A single operand passes up unchanged, so its occur
-// survives until it reaches a level with siblings. Several operands build a
-// Clause in which each child without an explicit occur gets the level's
-// occur.
+// A single operand passes up unchanged, so its explicit occur survives.
 func (p *parser) level(sub func(string) (operand, error), sep tokenKind, occur Occur, field string) (operand, error) {
 	first, err := sub(field)
 	if err != nil {
@@ -155,8 +138,6 @@ func (p *parser) level(sub func(string) (operand, error), sep tokenKind, occur O
 	return operand{pos: ops[0].pos, node: &Clause{Start: ops[0].pos, Children: children}}, nil
 }
 
-// separated reports (consuming sep if explicit) whether another operand
-// follows at this level.
 func (p *parser) separated(sep tokenKind) bool {
 	if sep == tokEOF {
 		return startsOperand(p.peek())
@@ -176,8 +157,6 @@ func startsOperand(t token) bool {
 	return false
 }
 
-// parseUnary parses an optional + / - / NOT prefix; an explicit occur
-// always wins over any level default.
 func (p *parser) parseUnary(field string) (operand, error) {
 	pos := p.peek().pos
 	occur := OccurNone
@@ -196,7 +175,6 @@ func (p *parser) parseUnary(field string) (operand, error) {
 	return operand{pos: pos, occur: occur, node: n}, nil
 }
 
-// parseBoosted parses a primary with an optional ^NUMBER boost.
 func (p *parser) parseBoosted(field string) (Node, error) {
 	n, err := p.parsePrimary(field)
 	if err != nil {
@@ -215,9 +193,6 @@ func (p *parser) parseBoosted(field string) (Node, error) {
 	return n, nil
 }
 
-// parsePrimary parses [FIELD:] (TERM | PHRASE | group). An explicit field
-// prefix overrides the group field passed down from an enclosing
-// parenthesised clause.
 func (p *parser) parsePrimary(field string) (Node, error) {
 	start := p.peek().pos
 	if p.peek().kind == tokField {

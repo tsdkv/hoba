@@ -38,7 +38,6 @@ func TestTopK(t *testing.T) {
 	})
 }
 
-// bruteForceTopK is the oracle: sort everything, take hits [offset, offset+k).
 func bruteForceTopK(hits []Hit, offset, k int) []Hit {
 	offset = max(offset, 0)
 	k = max(k, 0)

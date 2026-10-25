@@ -1,6 +1,3 @@
-// Package query turns a parsed query AST into a schema-resolved query
-// tree: field names become field IDs, leaf text goes through the field's
-// analyzer, and the parser's undecided OccurNone is decided by policy.
 package query
 
 import (
@@ -12,7 +9,6 @@ import (
 	"github.com/tsdkv/hoba/tokenizer"
 )
 
-// Sentinel errors wrapped by Error (and by NewParser's validation errors).
 var (
 	ErrUnknownField     = errors.New("unknown field")
 	ErrNotText          = errors.New("cannot search non-text field")
@@ -23,11 +19,10 @@ var (
 	ErrUnknownTokenizer = errors.New("unknown tokenizer")
 )
 
-// Error describes a schema-resolution problem at one query leaf.
 type Error struct {
-	Pos   int    // byte offset of the offending leaf
-	Field string // field involved, if any
-	Err   error  // a sentinel; Unwrap returns it
+	Pos   int
+	Field string
+	Err   error
 }
 
 func (e *Error) Error() string {
@@ -39,11 +34,9 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.Err }
 
-// Parser resolves query strings against a schema. It is safe for
-// concurrent use.
 type Parser struct {
 	s            *schema.Schema
-	analyzers    map[int]*tokenizer.Analyzer // indexed text field ID -> analyzer
+	analyzers    map[int]*tokenizer.Analyzer
 	defaultIDs   []int
 	defaultOccur Occur
 	maxClauses   int
@@ -56,38 +49,24 @@ type config struct {
 	maxClauses    int
 }
 
-// Option configures NewParser.
 type Option func(*config)
 
-// DefaultFields sets the fields searched by leaves without an explicit
-// field prefix. A leaf expands into a Should disjunction when more than
-// one default field is set.
 func DefaultFields(names ...string) Option {
 	return func(c *config) { c.defaultFields = names }
 }
 
-// DefaultOR resolves whitespace-separated leaves as Should (Lucene-style
-// OR semantics) instead of the default Must (AND semantics).
 func DefaultOR() Option {
 	return func(c *config) { c.defaultOccur = OccurShould }
 }
 
-// Tokenizers sets the analyzer registry for leaf text. The default is
-// tokenizer.NewManager().
 func Tokenizers(m *tokenizer.Manager) Option {
 	return func(c *config) { c.manager = m }
 }
 
-// MaxClauses bounds the number of leaf clauses after default-field
-// expansion; n must be > 0. The default is 1024.
 func MaxClauses(n int) Option {
 	return func(c *config) { c.maxClauses = n }
 }
 
-// NewParser builds a Parser against the schema. It checks that the clause
-// limit is positive, that each default field exists and is an indexed text
-// field, and that every indexed text field's tokenizer is registered in
-// the Manager. These errors wrap the package's sentinel errors.
 func NewParser(s *schema.Schema, opts ...Option) (*Parser, error) {
 	c := config{
 		defaultOccur: OccurMust,
@@ -134,7 +113,6 @@ func NewParser(s *schema.Schema, opts ...Option) (*Parser, error) {
 	}, nil
 }
 
-// Parse parses q and resolves it against the schema.
 func (p *Parser) Parse(q string) (Node, error) {
 	ast, err := parser.Parse(q)
 	if err != nil {
@@ -143,12 +121,6 @@ func (p *Parser) Parse(q string) (Node, error) {
 	return p.Resolve(ast)
 }
 
-// Resolve resolves a parsed (or hand-built) AST: it verifies that every
-// field exists, is indexed and supports the query shape, analyzes leaf
-// text with the field's analyzer, decides OccurNone by policy (Must unless
-// DefaultOR is set), and rewrites the tree bottom-up — dropped leaves
-// disappear, an all-negative Boolean gains a MatchAll Must child, and a
-// single-child Boolean is unwrapped.
 func (p *Parser) Resolve(ast parser.Node) (Node, error) {
 	r := resolver{p: p}
 	n, err := r.node(ast)

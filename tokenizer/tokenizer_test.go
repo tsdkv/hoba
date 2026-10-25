@@ -113,7 +113,6 @@ func TestAnalyzerComposition(t *testing.T) {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 
-	// a dropped over-long token leaves a position gap
 	long := strings.Repeat("x", 41)
 	got := collect(a, "a "+long+" b")
 	want = []Token{

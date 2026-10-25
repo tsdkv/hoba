@@ -10,18 +10,18 @@ import (
 type tokenKind int
 
 const (
-	tokEOF    tokenKind = iota
-	tokTerm             // bare word: foo
-	tokPhrase           // "foo bar"
-	tokField            // "title:"  -> val holds "title"
+	tokEOF tokenKind = iota
+	tokTerm
+	tokPhrase
+	tokField
 	tokLParen
 	tokRParen
-	tokAnd // AND
-	tokOr  // OR
-	tokNot // NOT
+	tokAnd
+	tokOr
+	tokNot
 	tokPlus
 	tokMinus
-	tokBoost // ^1.5 -> val holds "1.5"
+	tokBoost
 )
 
 func (k tokenKind) String() string {
@@ -56,11 +56,10 @@ func (k tokenKind) String() string {
 
 type token struct {
 	kind tokenKind
-	val  string // unescaped text for term/phrase/field, the number for boost
-	pos  int    // byte offset, for error messages
+	val  string // unescaped text for term/phrase/field, digits for boost
+	pos  int
 }
 
-// String renders the token for error messages, e.g. `term "foo"` or `AND`.
 func (t token) String() string {
 	if t.val != "" {
 		return fmt.Sprintf("%s %q", t.kind, t.val)
@@ -85,7 +84,7 @@ func lex(s string) ([]token, error) {
 		case r == ')':
 			toks = append(toks, token{tokRParen, "", i})
 			i++
-		case r == '+': // an operator where a word can start
+		case r == '+':
 			toks = append(toks, token{tokPlus, "", i})
 			i++
 		case r == '-':
@@ -121,8 +120,7 @@ func lex(s string) ([]token, error) {
 	return append(toks, token{kind: tokEOF, pos: len(s)}), nil
 }
 
-// isReserved reports whether r is set aside for future query features
-// (fuzzy, wildcard, ranges).
+// Runes set aside for future query features (fuzzy, wildcard, ranges).
 func isReserved(r rune) bool {
 	switch r {
 	case '~', '*', '[', ']', '{', '}':
@@ -131,15 +129,12 @@ func isReserved(r rune) bool {
 	return false
 }
 
-// isWordEnd reports whether r terminates a word. + and - are not here:
-// inside a word they are literal (c++, e-mail, 2024-01-01).
+// + and - are literal inside a word (c++, e-mail, 2024-01-01).
 func isWordEnd(r rune) bool {
 	return unicode.IsSpace(r) || r == '(' || r == ')' || r == '"' || r == '^' || r == ':' || isReserved(r)
 }
 
-// lexWord scans one word starting at i and returns it unescaped. A word
-// followed by optional whitespace and ':' is a field name. A word built
-// with escapes is never an AND/OR/NOT keyword.
+// A word built with escapes never lexes as an AND/OR/NOT keyword.
 func lexWord(s string, i int) (token, int, error) {
 	var b strings.Builder
 	esc := false
@@ -190,8 +185,6 @@ func lexWord(s string, i int) (token, int, error) {
 	return token{tokTerm, word, i}, j, nil
 }
 
-// lexPhrase scans a quoted phrase starting at the '"' at i and returns it
-// unescaped.
 func lexPhrase(s string, i int) (token, int, error) {
 	var b strings.Builder
 	j := i + 1
@@ -218,9 +211,7 @@ func lexPhrase(s string, i int) (token, int, error) {
 	return token{}, 0, &Error{Pos: i, Msg: "unclosed quote"}
 }
 
-// lexBoost scans a "^NUMBER" token starting at the '^' at i. The number is
-// digits with at most one dot and must not run into a word character
-// (foo^2bar is an error, never foo^2 followed by bar).
+// foo^2bar is an error, never foo^2 followed by bar.
 func lexBoost(s string, i int) (token, int, error) {
 	j := i + 1
 	digits, dots := 0, 0
@@ -249,8 +240,6 @@ func lexBoost(s string, i int) (token, int, error) {
 	return token{tokBoost, num, i}, j, nil
 }
 
-// escapedRune returns the rune following the backslash at i (of size size)
-// as a string, or an error for a trailing backslash or invalid UTF-8.
 func escapedRune(s string, i, size int) (string, int, error) {
 	if i+size >= len(s) {
 		return "", 0, &Error{Pos: i, Msg: "trailing backslash"}

@@ -112,8 +112,7 @@ func (m *MemSegment) TotalTokens(field int) uint64 {
 func (m *MemSegment) appendPosting(k termKey, doc DocID, pos uint32, recordPos bool) {
 	p, ok := m.postings[k]
 	if !ok {
-		// Token text is a substring of the document; using it as a map key
-		// would pin the whole document in memory. Clone once, at key creation.
+		// Token text aliases the document; cloning avoids pinning it in memory.
 		k.text = strings.Clone(k.text)
 	}
 	if n := len(p); n > 0 && p[n-1].Doc == doc {

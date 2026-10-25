@@ -15,10 +15,11 @@ type Posting struct {
 
 // Postings iterates one term's posting list, sorted by DocID.
 type Postings interface {
-	Doc() DocID              // current doc, Terminated when exhausted
-	Advance() DocID          // next doc
-	Seek(target DocID) DocID // first doc >= target
-	Freq() uint32            // Freq of Doc(); positions come later with SegmentReader
+	Doc() DocID
+	Advance() DocID
+	// Seek returns the first doc >= target, never moving backwards.
+	Seek(target DocID) DocID
+	Freq() uint32
 }
 
 type slicePostings struct {

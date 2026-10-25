@@ -34,9 +34,6 @@ func (h *hitHeap) Pop() any {
 	return x
 }
 
-// TopK collects the k best hits, skipping the first offset. Collect assumes
-// each doc is collected at most once; duplicates count as independent hits.
-//
 // TODO: swap the heap for a 2*k buffer with quickselect truncation and
 // score-threshold rejection (Tantivy TopNComputer) — amortized O(1) per push.
 type TopK struct {
@@ -45,12 +42,10 @@ type TopK struct {
 	hh     hitHeap
 }
 
-// NewTopK returns a collector keeping the k best hits. k <= 0 collects nothing.
 func NewTopK(k int) *TopK {
 	return NewTopKRange(0, k)
 }
 
-// NewTopKRange returns a collector keeping hits ranked [offset, offset+k).
 func NewTopKRange(offset, k int) *TopK {
 	offset = max(offset, 0)
 	k = max(k, 0)
