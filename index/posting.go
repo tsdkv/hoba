@@ -13,8 +13,8 @@ type Posting struct {
 	Positions []uint32
 }
 
-// Postings iterates one term's posting list, sorted by DocID.
-type Postings interface {
+// PostingsIterator iterates one term's posting list, sorted by DocID.
+type PostingsIterator interface {
 	Doc() DocID
 	Advance() DocID
 	// Seek returns the first doc >= target, never moving backwards.

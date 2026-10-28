@@ -95,7 +95,7 @@ func (m *MemSegment) Add(doc schema.Document) (DocID, error) {
 	return docID, nil
 }
 
-func (m *MemSegment) Postings(field int, term string) (Postings, bool) {
+func (m *MemSegment) Postings(field int, term string) (PostingsIterator, bool) {
 	p, ok := m.postings[termKey{field, term}]
 	if !ok {
 		return nil, false
@@ -105,6 +105,14 @@ func (m *MemSegment) Postings(field int, term string) (Postings, bool) {
 
 func (m *MemSegment) NumDocs() int {
 	return len(m.stored)
+}
+
+func (m *MemSegment) Schema() *schema.Schema { return m.schema }
+
+func (m *MemSegment) TokenizerManager() *tokenizer.Manager { return m.tm }
+
+func (m *MemSegment) DocFreq(field int, term string) int {
+	return len(m.postings[termKey{field, term}])
 }
 
 func (m *MemSegment) DocLen(doc DocID, field int) uint32 {
