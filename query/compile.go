@@ -14,7 +14,9 @@ func Compile(q Node, seg index.Segment) Scorer {
 			return newBoostScorer(child, n.Factor)
 		}
 		return nil
-	case *MatchAll, *Boolean, *Phrase:
+	case *MatchAll:
+		return newMatchAllScorer(seg)
+	case *Boolean, *Phrase:
 		panic("unimplemented")
 	}
 
