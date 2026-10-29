@@ -2,7 +2,7 @@ package query
 
 import "github.com/tsdkv/hoba/index"
 
-func Compile(q Node, seg *index.MemSegment) Scorer {
+func Compile(q Node, seg index.Segment) Scorer {
 	switch n := q.(type) {
 	case *Term:
 		if s := newTermScorer(seg, n.FieldID, n.Text); s != nil {

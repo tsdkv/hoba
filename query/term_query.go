@@ -2,20 +2,22 @@ package query
 
 import "github.com/tsdkv/hoba/index"
 
-type TermScorer struct {
+var _ Scorer = (*termScorer)(nil)
+
+type termScorer struct {
 	p     index.PostingsIterator
-	seg   *index.MemSegment
+	seg   index.Segment
 	field int
 	w     bm25
 }
 
-func newTermScorer(seg *index.MemSegment, field int, term string) *TermScorer {
+func newTermScorer(seg index.Segment, field int, term string) *termScorer {
 	po, ok := seg.Postings(field, term)
 	if !ok {
 		return nil
 	}
 
-	return &TermScorer{
+	return &termScorer{
 		p:     po,
 		seg:   seg,
 		field: field,
@@ -23,18 +25,18 @@ func newTermScorer(seg *index.MemSegment, field int, term string) *TermScorer {
 	}
 }
 
-func (s *TermScorer) Score() float64 {
+func (s *termScorer) Score() float64 {
 	return s.w.score(s.p.Freq(), s.seg.DocLen(s.p.Doc(), s.field))
 }
 
-func (s *TermScorer) Doc() index.DocID {
+func (s *termScorer) Doc() index.DocID {
 	return s.p.Doc()
 }
 
-func (s *TermScorer) Advance() index.DocID {
+func (s *termScorer) Advance() index.DocID {
 	return s.p.Advance()
 }
 
-func (s *TermScorer) Seek(target index.DocID) index.DocID {
+func (s *termScorer) Seek(target index.DocID) index.DocID {
 	return s.p.Seek(target)
 }
