@@ -13,6 +13,8 @@ type termKey struct {
 	text  string
 }
 
+var _ Segment = (*MemSegment)(nil)
+
 type MemSegment struct {
 	schema *schema.Schema
 
@@ -142,4 +144,12 @@ func (m *MemSegment) appendPosting(k termKey, doc DocID, pos uint32, recordPos b
 		p = append(p, posting)
 	}
 	m.postings[k] = p
+}
+
+func (m *MemSegment) Stored(doc DocID) (schema.Document, bool) {
+	if doc > DocID(len(m.stored)) {
+		return schema.Document{}, false
+	}
+
+	return m.stored[doc], true
 }
