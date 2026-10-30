@@ -1,21 +1,16 @@
 package query
 
-import "github.com/tsdkv/hoba/internal/index"
-
-func Compile(q Node, seg index.Segment) Scorer {
+func Compile(q Node, st Stats) Weight {
 	switch n := q.(type) {
 	case *Term:
-		if s := newTermScorer(seg, n.FieldID, n.Text); s != nil {
-			return s
-		}
-		return nil
+		return newTermWeight(st, n.FieldID, n.Text)
 	case *Boost:
-		if child := Compile(n.Node, seg); child != nil {
-			return newBoostScorer(child, n.Factor)
+		if child := Compile(n.Node, st); child != nil {
+			return &boostWeight{child: child, factor: n.Factor}
 		}
 		return nil
 	case *MatchAll:
-		return newMatchAllScorer(seg)
+		return matchAllWeight{}
 	case *Boolean, *Phrase:
 		panic("unimplemented")
 	}

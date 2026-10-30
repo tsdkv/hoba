@@ -2,7 +2,16 @@ package query
 
 import "github.com/tsdkv/hoba/internal/index"
 
-var _ Scorer = (*matchAllScorer)(nil)
+var (
+	_ Weight = matchAllWeight{}
+	_ Scorer = (*matchAllScorer)(nil)
+)
+
+type matchAllWeight struct{}
+
+func (matchAllWeight) Scorer(seg index.Segment) Scorer {
+	return newMatchAllScorer(seg)
+}
 
 type matchAllScorer struct {
 	numDocs int

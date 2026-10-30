@@ -2,13 +2,27 @@ package query
 
 import "github.com/tsdkv/hoba/internal/index"
 
-type boostScorer struct {
-	child  Scorer
+var (
+	_ Weight = (*boostWeight)(nil)
+	_ Scorer = (*boostScorer)(nil)
+)
+
+type boostWeight struct {
+	child  Weight
 	factor float64
 }
 
-func newBoostScorer(child Scorer, factor float64) *boostScorer {
-	return &boostScorer{child: child, factor: factor}
+func (w *boostWeight) Scorer(seg index.Segment) Scorer {
+	child := w.child.Scorer(seg)
+	if child == nil {
+		return nil
+	}
+	return &boostScorer{child: child, factor: w.factor}
+}
+
+type boostScorer struct {
+	child  Scorer
+	factor float64
 }
 
 func (s *boostScorer) Doc() index.DocID {

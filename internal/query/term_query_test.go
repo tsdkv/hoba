@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/tsdkv/hoba/internal/index"
 	"github.com/tsdkv/hoba/schema"
 	"github.com/tsdkv/hoba/tokenizer"
@@ -12,6 +13,7 @@ import (
 
 // Same layout as TestBM25HandComputed: 3 docs, term in 2, lengths 1/2/5,
 // so the end-to-end scores must equal the hand-computed bm25 values.
+// A lone MemSegment is its own Stats, so Compile sees the same numbers.
 func TestTermScorerScore(t *testing.T) {
 	tm := tokenizer.NewManager()
 	s, err := schema.NewSchema(schema.TextField("body", schema.Indexed()))
@@ -25,7 +27,7 @@ func TestTermScorerScore(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	ts := newTermScorer(m, 0, "apple")
+	ts := Compile(&Term{FieldID: 0, Text: "apple"}, m).Scorer(m)
 	require.NotNil(t, ts)
 
 	require.Equal(t, index.DocID(0), ts.Advance())
@@ -42,5 +44,8 @@ func TestTermScorerMissingTerm(t *testing.T) {
 	s, err := schema.NewSchema(schema.TextField("body", schema.Indexed()))
 	require.NoError(t, err)
 
-	assert.Nil(t, newTermScorer(index.NewMemSegment(s, tm), 0, "apple"))
+	m := index.NewMemSegment(s, tm)
+	w := Compile(&Term{FieldID: 0, Text: "apple"}, m)
+	require.NotNil(t, w)
+	assert.Nil(t, w.Scorer(m))
 }
