@@ -147,7 +147,7 @@ func (m *MemSegment) appendPosting(k termKey, doc DocID, pos uint32, recordPos b
 }
 
 func (m *MemSegment) Stored(doc DocID) (schema.Document, bool) {
-	if doc > DocID(len(m.stored)) {
+	if doc >= DocID(len(m.stored)) {
 		return schema.Document{}, false
 	}
 

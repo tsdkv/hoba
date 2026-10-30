@@ -92,7 +92,7 @@ func (s *Searcher) Search(qs string, k int) ([]Hit, error) {
 }
 
 func (s *Searcher) Doc(addr DocAddress) (Document, error) {
-	if addr.SegmentOrd > len(s.snap.segs) {
+	if addr.SegmentOrd >= len(s.snap.segs) {
 		return Document{}, fmt.Errorf("wrong segment ord (too big): %d (num segments: %d)", addr.SegmentOrd, len(s.snap.segs))
 	}
 
