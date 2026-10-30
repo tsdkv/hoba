@@ -1,9 +1,9 @@
 package hoba
 
 import (
-	"github.com/tsdkv/hoba/collector"
-	"github.com/tsdkv/hoba/index"
-	"github.com/tsdkv/hoba/query"
+	"github.com/tsdkv/hoba/internal/collector"
+	"github.com/tsdkv/hoba/internal/index"
+	"github.com/tsdkv/hoba/internal/query"
 	"github.com/tsdkv/hoba/schema"
 )
 

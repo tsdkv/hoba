@@ -1,6 +1,6 @@
 package query
 
-import "github.com/tsdkv/hoba/index"
+import "github.com/tsdkv/hoba/internal/index"
 
 var _ Scorer = (*termScorer)(nil)
 

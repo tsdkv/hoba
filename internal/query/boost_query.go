@@ -1,6 +1,6 @@
 package query
 
-import "github.com/tsdkv/hoba/index"
+import "github.com/tsdkv/hoba/internal/index"
 
 type boostScorer struct {
 	child  Scorer

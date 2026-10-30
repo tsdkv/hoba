@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tsdkv/hoba/index"
+	"github.com/tsdkv/hoba/internal/index"
 	"github.com/tsdkv/hoba/schema"
 	"github.com/tsdkv/hoba/tokenizer"
 )

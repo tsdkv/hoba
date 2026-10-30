@@ -4,7 +4,7 @@ import (
 	"container/heap"
 	"sort"
 
-	"github.com/tsdkv/hoba/index"
+	"github.com/tsdkv/hoba/internal/index"
 )
 
 type Hit struct {

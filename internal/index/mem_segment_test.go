@@ -8,9 +8,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"pgregory.net/rapid"
+
 	"github.com/tsdkv/hoba/schema"
 	"github.com/tsdkv/hoba/tokenizer"
-	"pgregory.net/rapid"
 )
 
 // Regression lock: lens must stay dense ([field][doc]) even when docs omit

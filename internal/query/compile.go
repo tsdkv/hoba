@@ -1,6 +1,6 @@
 package query
 
-import "github.com/tsdkv/hoba/index"
+import "github.com/tsdkv/hoba/internal/index"
 
 func Compile(q Node, seg index.Segment) Scorer {
 	switch n := q.(type) {

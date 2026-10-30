@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tsdkv/hoba/query/parser"
+	"github.com/tsdkv/hoba/internal/query/parser"
 	"github.com/tsdkv/hoba/schema"
 )
 
