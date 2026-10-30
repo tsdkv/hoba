@@ -8,12 +8,18 @@ import (
 )
 
 type Hit struct {
-	Doc   index.DocID
+	Doc   index.DocAddress
 	Score float64
 }
 
 func (a Hit) better(b Hit) bool {
-	return a.Score > b.Score || (a.Score == b.Score && a.Doc < b.Doc)
+	if a.Score != b.Score {
+		return a.Score > b.Score
+	}
+	if a.Doc.SegmentOrd != b.Doc.SegmentOrd {
+		return a.Doc.SegmentOrd < b.Doc.SegmentOrd
+	}
+	return a.Doc.DocID < b.Doc.DocID
 }
 
 type hitHeap []Hit
@@ -52,7 +58,7 @@ func NewTopKRange(offset, k int) *TopK {
 	return &TopK{offset: offset, k: k, hh: make(hitHeap, 0, offset+k)}
 }
 
-func (c *TopK) Collect(doc index.DocID, score float64) {
+func (c *TopK) Collect(doc index.DocAddress, score float64) {
 	if c.k == 0 {
 		return
 	}
