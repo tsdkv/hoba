@@ -11,7 +11,9 @@ func Compile(q Node, st Stats) Weight {
 		return nil
 	case *MatchAll:
 		return matchAllWeight{}
-	case *Boolean, *Phrase:
+	case *Boolean:
+		return newBooleanWeight(st, n.Children)
+	case *Phrase:
 		panic("unimplemented")
 	}
 
