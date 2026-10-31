@@ -46,7 +46,13 @@ func newBooleanWeight(st Stats, children []OccurNode) Weight {
 func (w *booleanWeight) Scorer(seg index.Segment) Scorer {
 	bs := &booleanScorer{}
 
-	bs.musts = w.musts.Scorer(seg)
+	if len(w.musts.children) > 0 {
+		bs.musts = w.musts.Scorer(seg)
+		if bs.musts == nil {
+			return nil
+		}
+	}
+
 	bs.shoulds = w.shoulds.Scorer(seg)
 
 	for _, mn := range w.mustNots {
@@ -61,6 +67,7 @@ func (w *booleanWeight) Scorer(seg index.Segment) Scorer {
 		return nil
 	}
 
+	bs.Seek(0)
 	return bs
 }
 
