@@ -1,11 +1,9 @@
 package pbt
 
 import (
-	"math"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"pgregory.net/rapid"
 
@@ -37,18 +35,7 @@ func TestQueryGeneratorValidity(t *testing.T) {
 			return
 		}
 
-		sc := w.Scorer(seg)
-		if sc == nil {
-			return
-		}
-
-		prev := -1
-		for doc := sc.Doc(); doc != index.Terminated; doc = sc.Advance() {
-			require.Less(rt, int(doc), seg.NumDocs())
-			require.Greater(rt, int(doc), prev, "docIDs must increase")
-			assert.False(rt, math.IsNaN(sc.Score()), "NaN score at doc %d", doc)
-			prev = int(doc)
-		}
+		CheckScorer(rt, seg.NumDocs(), func() query.Scorer { return w.Scorer(seg) })
 	})
 }
 
