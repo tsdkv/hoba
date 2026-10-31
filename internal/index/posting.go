@@ -14,6 +14,8 @@ type Posting struct {
 }
 
 // PostingsIterator iterates one term's posting list, sorted by DocID.
+// A fresh iterator is positioned on the first posting; Doc returns
+// Terminated once the list is exhausted.
 type PostingsIterator interface {
 	Doc() DocID
 	Advance() DocID
@@ -24,11 +26,11 @@ type PostingsIterator interface {
 
 type slicePostings struct {
 	p   []Posting
-	cur int // -1 before the first Advance
+	cur int
 }
 
 func (sp *slicePostings) Doc() DocID {
-	if sp.cur < 0 || sp.cur >= len(sp.p) {
+	if sp.cur >= len(sp.p) {
 		return Terminated
 	}
 	return sp.p[sp.cur].Doc
@@ -40,9 +42,6 @@ func (sp *slicePostings) Advance() DocID {
 }
 
 func (sp *slicePostings) Seek(target DocID) DocID {
-	if sp.cur < 0 {
-		sp.cur = 0
-	}
 	for sp.cur < len(sp.p) && sp.p[sp.cur].Doc < target {
 		sp.cur++
 	}

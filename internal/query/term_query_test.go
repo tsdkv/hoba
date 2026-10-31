@@ -30,7 +30,7 @@ func TestTermScorerScore(t *testing.T) {
 	ts := Compile(&Term{FieldID: 0, Text: "apple"}, m).Scorer(m)
 	require.NotNil(t, ts)
 
-	require.Equal(t, index.DocID(0), ts.Advance())
+	require.Equal(t, index.DocID(0), ts.Doc())
 	assert.InDelta(t, 0.6314552576125915, ts.Score(), 1e-12)
 
 	require.Equal(t, index.DocID(1), ts.Advance())

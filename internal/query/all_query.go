@@ -10,6 +10,9 @@ var (
 type matchAllWeight struct{}
 
 func (matchAllWeight) Scorer(seg index.Segment) Scorer {
+	if seg.NumDocs() == 0 {
+		return nil
+	}
 	return newMatchAllScorer(seg)
 }
 
@@ -19,10 +22,7 @@ type matchAllScorer struct {
 }
 
 func newMatchAllScorer(seg index.Segment) *matchAllScorer {
-	return &matchAllScorer{
-		numDocs: seg.NumDocs(),
-		cur:     -1,
-	}
+	return &matchAllScorer{numDocs: seg.NumDocs()}
 }
 
 func (s *matchAllScorer) Score() float64 {
@@ -30,7 +30,7 @@ func (s *matchAllScorer) Score() float64 {
 }
 
 func (s *matchAllScorer) Doc() index.DocID {
-	if s.cur < 0 || s.cur > s.numDocs {
+	if s.cur >= s.numDocs {
 		return index.Terminated
 	}
 
@@ -38,17 +38,11 @@ func (s *matchAllScorer) Doc() index.DocID {
 }
 
 func (s *matchAllScorer) Advance() index.DocID {
-	if s.cur >= s.numDocs {
-		return index.Terminated
-	}
 	s.cur++
-	return index.DocID(s.cur)
+	return s.Doc()
 }
 
 func (s *matchAllScorer) Seek(target index.DocID) index.DocID {
-	if s.cur < 0 {
-		s.cur = 0
-	}
 	if int64(target) > int64(s.cur) {
 		s.cur = int(target)
 	}

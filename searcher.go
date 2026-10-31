@@ -83,7 +83,7 @@ func (s *Searcher) Search(qs string, k int) ([]Hit, error) {
 			continue
 		}
 
-		for doc := scorer.Advance(); doc != index.Terminated; doc = scorer.Advance() {
+		for doc := scorer.Doc(); doc != index.Terminated; doc = scorer.Advance() {
 			top.Collect(index.DocAddress{SegmentOrd: ord, DocID: doc}, scorer.Score())
 		}
 	}

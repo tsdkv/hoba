@@ -2,6 +2,8 @@ package query
 
 import "github.com/tsdkv/hoba/internal/index"
 
+// A DocSet starts positioned on its first document; Doc returns
+// index.Terminated once iteration is exhausted.
 type DocSet interface {
 	Doc() index.DocID
 	Advance() index.DocID
@@ -10,6 +12,7 @@ type DocSet interface {
 
 type Scorer interface {
 	DocSet
+	// Score is valid only while Doc is a real document.
 	Score() float64
 }
 

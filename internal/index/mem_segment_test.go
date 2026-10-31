@@ -133,7 +133,7 @@ func TestMemSegmentMatchesModel(t *testing.T) {
 
 				got := map[DocID]uint32{}
 				prev, started := DocID(0), false
-				for d := p.Advance(); d != Terminated; d = p.Advance() {
+				for d := p.Doc(); d != Terminated; d = p.Advance() {
 					if started {
 						require.Greater(rt, d, prev, "postings not sorted")
 					}

@@ -102,7 +102,7 @@ func (m *MemSegment) Postings(field int, term string) (PostingsIterator, bool) {
 	if !ok {
 		return nil, false
 	}
-	return &slicePostings{p: p, cur: -1}, true
+	return &slicePostings{p: p}, true
 }
 
 func (m *MemSegment) NumDocs() int {
