@@ -32,6 +32,8 @@ Rules for anyone (human or agent) changing this repo.
 
 - Inline code beats small helpers; extract a function only when it is
   actually used in several places.
+- Separate logical blocks with a single blank line (gofmt collapses more);
+  in tests: arrange/act/assert.
 
 ## Comments
 
