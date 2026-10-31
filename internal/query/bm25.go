@@ -31,3 +31,7 @@ func (w bm25) score(tf, docLen uint32) float64 {
 	f := float64(tf)
 	return w.idf * f * (k1 + 1) / (f + k1*(1-b+b*float64(docLen)/w.avgdl))
 }
+
+func BM25Score(numDocs, docFreq int, totalTokens uint64, tf, docLen uint32) float64 {
+	return newBM25(numDocs, docFreq, totalTokens).score(tf, docLen)
+}

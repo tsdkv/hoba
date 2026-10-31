@@ -1,9 +1,9 @@
 package query_test
 
 import (
-	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"pgregory.net/rapid"
 
@@ -14,89 +14,7 @@ import (
 	"github.com/tsdkv/hoba/tokenizer"
 )
 
-func testSchema(t *testing.T) *schema.Schema {
-	s, err := schema.NewSchema(
-		schema.TextField("title", schema.Indexed(), schema.Stored()),
-		schema.TextField("code", schema.Indexed(), schema.Keyword()),
-		schema.Int64Field("year", schema.Indexed(), schema.Fast()),
-	)
-	require.NoError(t, err)
-
-	return s
-}
-
-func matchModel(n query.Node, fields map[int]map[string]bool) bool {
-	switch n := n.(type) {
-	case *query.Term:
-		return fields[n.FieldID][n.Text]
-	case *query.MatchAll:
-		return true
-	case *query.Boost:
-		return matchModel(n.Node, fields)
-	case *query.Boolean:
-		var musts, shoulds []query.Node
-
-		for _, ch := range n.Children {
-			switch ch.Occur {
-			case query.OccurMust:
-				musts = append(musts, ch.Node)
-			case query.OccurShould:
-				shoulds = append(shoulds, ch.Node)
-			case query.OccurMustNot:
-				if matchModel(ch.Node, fields) {
-					return false
-				}
-			}
-		}
-
-		if len(musts) > 0 {
-			for _, m := range musts {
-				if !matchModel(m, fields) {
-					return false
-				}
-			}
-
-			return true
-		}
-
-		for _, sh := range shoulds {
-			if matchModel(sh, fields) {
-				return true
-			}
-		}
-
-		return false
-	default:
-		panic(fmt.Sprintf("model: unexpected node %T", n))
-	}
-}
-
-func tokenSets(tm *tokenizer.Manager, s *schema.Schema, doc schema.Document) map[int]map[string]bool {
-	sets := map[int]map[string]bool{}
-
-	for _, fv := range doc.Fields {
-		f, _ := s.FieldByID(fv.Field)
-		if f.Type != schema.FieldTypeText {
-			continue
-		}
-
-		a, ok := tm.Get(f.Tokenizer)
-		if !ok {
-			continue
-		}
-
-		sets[fv.Field] = map[string]bool{}
-		for tok := range a.Tokens(fv.Value.Str) {
-			sets[fv.Field][tok.Text] = true
-		}
-	}
-
-	return sets
-}
-
-// The model is the oracle: boolean semantics evaluated directly on document
-// tokens must agree with the compiled scorer's match set.
-func TestBooleanQueryMatchesModel(t *testing.T) {
+func TestBooleanQueryMatchesOracle(t *testing.T) {
 	s := testSchema(t)
 	tm := tokenizer.NewManager()
 
@@ -115,30 +33,32 @@ func TestBooleanQueryMatchesModel(t *testing.T) {
 		w := query.Compile(q, seg)
 		require.NotNil(rt, w)
 
-		got := map[index.DocID]bool{}
-		if sc := w.Scorer(seg); sc != nil {
-			for d := sc.Doc(); d != index.Terminated; d = sc.Advance() {
-				got[d] = true
-			}
+		got := map[index.DocID]float64{}
+		hits := pbt.CheckScorer(rt, seg.NumDocs(), func() query.Scorer { return w.Scorer(seg) })
+		for _, h := range hits {
+			got[h.Doc] = h.Score
 		}
 
+		o := newOracle(tm, s, docs)
 		for i, doc := range docs {
-			want := matchModel(q, tokenSets(tm, s, doc))
-			require.Equal(rt, want, got[ids[i]], "doc %d %v, query %v", i, doc, q)
+			matched, score := o.eval(q, o.docs[i])
+			gotScore, ok := got[ids[i]]
+			assert.Equal(rt, matched, ok, "doc %d %v, query %v", i, doc, q)
+			if matched && ok {
+				assert.InDelta(rt, score, gotScore, 1e-9, "doc %d %v, query %v", i, doc, q)
+			}
 		}
 	})
 }
 
-func TestIntersectionMatchesModel(t *testing.T) {
+func TestIntersectionMatchesOracle(t *testing.T) {
 	checkFlatBoolean(t, query.OccurMust)
 }
 
-func TestDisjunctionMatchesModel(t *testing.T) {
+func TestDisjunctionMatchesOracle(t *testing.T) {
 	checkFlatBoolean(t, query.OccurShould)
 }
 
-// Flat homogeneous booleans over leaf-only subtrees: the boolean wrapper only
-// delegates, so the match set comes straight from the scorer under test.
 func checkFlatBoolean(t *testing.T, occur query.Occur) {
 	s := testSchema(t)
 	tm := tokenizer.NewManager()
@@ -167,16 +87,31 @@ func checkFlatBoolean(t *testing.T, occur query.Occur) {
 		w := query.Compile(q, seg)
 		require.NotNil(rt, w)
 
-		got := map[index.DocID]bool{}
-		if sc := w.Scorer(seg); sc != nil {
-			for d := sc.Doc(); d != index.Terminated; d = sc.Advance() {
-				got[d] = true
-			}
+		got := map[index.DocID]float64{}
+		hits := pbt.CheckScorer(rt, seg.NumDocs(), func() query.Scorer { return w.Scorer(seg) })
+		for _, h := range hits {
+			got[h.Doc] = h.Score
 		}
 
+		o := newOracle(tm, s, docs)
 		for i, doc := range docs {
-			want := matchModel(q, tokenSets(tm, s, doc))
-			require.Equal(rt, want, got[ids[i]], "doc %d %v, query %v", i, doc, q)
+			matched, score := o.eval(q, o.docs[i])
+			gotScore, ok := got[ids[i]]
+			assert.Equal(rt, matched, ok, "doc %d %v, query %v", i, doc, q)
+			if matched && ok {
+				assert.InDelta(rt, score, gotScore, 1e-9, "doc %d %v, query %v", i, doc, q)
+			}
 		}
 	})
+}
+
+func testSchema(t *testing.T) *schema.Schema {
+	s, err := schema.NewSchema(
+		schema.TextField("title", schema.Indexed(), schema.Stored()),
+		schema.TextField("code", schema.Indexed(), schema.Keyword()),
+		schema.Int64Field("year", schema.Indexed(), schema.Fast()),
+	)
+	require.NoError(t, err)
+
+	return s
 }
