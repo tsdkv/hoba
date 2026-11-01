@@ -11,73 +11,64 @@ type intersectionWeight struct {
 	children []Weight
 }
 
-func newIntersectionWeight(s []Weight) *intersectionWeight {
-	return &intersectionWeight{s}
-}
-
 func (iw *intersectionWeight) Scorer(seg index.Segment) Scorer {
-	s := &intersectionScorer{}
-
+	scorers := make([]Scorer, 0, len(iw.children))
 	for _, w := range iw.children {
 		sc := w.Scorer(seg)
 		if sc == nil {
 			return nil
 		}
-		s.children = append(s.children, sc)
+		scorers = append(scorers, sc)
 	}
 
-	if len(s.children) == 0 {
+	if len(scorers) == 0 {
 		return nil
 	}
 
-	if len(s.children) == 1 {
-		return s.children[0]
+	if len(scorers) == 1 {
+		return scorers[0]
 	}
 
-	s.doc = s.align()
-	if s.doc == index.Terminated {
+	ds := newIntersectionDocSet(toDocSets(scorers))
+	if ds.Doc() == index.Terminated {
 		return nil
 	}
 
-	return s
+	return &intersectionScorer{intersectionDocSet: ds, scorers: scorers}
 }
 
-type intersectionScorer struct {
-	children []Scorer
+type intersectionDocSet struct {
+	children []DocSet
 	doc      index.DocID
 }
 
-func (is *intersectionScorer) Doc() index.DocID {
-	return is.doc
+func newIntersectionDocSet(children []DocSet) *intersectionDocSet {
+	ds := &intersectionDocSet{children: children}
+	ds.doc = ds.align()
+	return ds
 }
 
-func (is *intersectionScorer) Advance() index.DocID {
-	is.children[0].Advance()
-	is.doc = is.align()
-	return is.doc
+func (ds *intersectionDocSet) Doc() index.DocID {
+	return ds.doc
 }
 
-func (is *intersectionScorer) Seek(target index.DocID) index.DocID {
-	for _, s := range is.children {
+func (ds *intersectionDocSet) Advance() index.DocID {
+	ds.children[0].Advance()
+	ds.doc = ds.align()
+	return ds.doc
+}
+
+func (ds *intersectionDocSet) Seek(target index.DocID) index.DocID {
+	for _, s := range ds.children {
 		s.Seek(target)
 	}
-	is.doc = is.align()
-	return is.doc
+	ds.doc = ds.align()
+	return ds.doc
 }
 
-// Score is valid only while Doc is a real document.
-func (is *intersectionScorer) Score() float64 {
-	score := float64(0)
-	for _, s := range is.children {
-		score += s.Score()
-	}
-
-	return score
-}
-
-func (is *intersectionScorer) align() index.DocID {
-	candidate := is.children[0].Doc()
-	for _, s := range is.children {
+func (ds *intersectionDocSet) align() index.DocID {
+	candidate := ds.children[0].Doc()
+	for _, s := range ds.children {
 		candidate = max(candidate, s.Doc())
 	}
 
@@ -87,7 +78,7 @@ func (is *intersectionScorer) align() index.DocID {
 
 outer:
 	for {
-		for _, s := range is.children {
+		for _, s := range ds.children {
 			cc := s.Seek(candidate)
 			if cc == index.Terminated {
 				return index.Terminated
@@ -101,4 +92,18 @@ outer:
 
 		return candidate
 	}
+}
+
+type intersectionScorer struct {
+	*intersectionDocSet
+	scorers []Scorer
+}
+
+func (s *intersectionScorer) Score() float64 {
+	var score float64
+	for _, sc := range s.scorers {
+		score += sc.Score()
+	}
+
+	return score
 }

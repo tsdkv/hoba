@@ -16,13 +16,10 @@ type Scorer interface {
 	Score() float64
 }
 
-type Stats interface {
-	NumDocs() int
-	TotalTokens(field int) uint64
-	DocFreq(field int, term string) int
-}
-
-// Scorer returns nil when nothing in seg can match.
-type Weight interface {
-	Scorer(seg index.Segment) Scorer
+func toDocSets(scorers []Scorer) []DocSet {
+	docsets := make([]DocSet, len(scorers))
+	for i, s := range scorers {
+		docsets[i] = s
+	}
+	return docsets
 }

@@ -9,7 +9,7 @@ var (
 
 type booleanWeight struct {
 	musts    *intersectionWeight
-	shoulds  *disjunctionWeight
+	shoulds  *unionWeight
 	mustNots []Weight
 }
 
@@ -37,8 +37,8 @@ func newBooleanWeight(st Stats, children []OccurNode) Weight {
 		return nil
 	}
 
-	w.musts = newIntersectionWeight(musts)
-	w.shoulds = newDisjunctionWeight(shoulds)
+	w.musts = &intersectionWeight{musts}
+	w.shoulds = &unionWeight{shoulds}
 
 	return w
 }
@@ -138,7 +138,7 @@ func (s *booleanScorer) Seek(target index.DocID) index.DocID {
 }
 
 func (s *booleanScorer) Score() float64 {
-	score := float64(0)
+	var score float64
 	if s.musts != nil {
 		score = s.musts.Score()
 	}

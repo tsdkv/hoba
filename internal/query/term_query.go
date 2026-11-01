@@ -28,28 +28,16 @@ func (w *termWeight) Scorer(seg index.Segment) Scorer {
 	if !ok {
 		return nil
 	}
-	return &termScorer{p: po, seg: seg, field: w.field, w: w.w}
+	return &termScorer{PostingsIterator: po, seg: seg, field: w.field, w: w.w}
 }
 
 type termScorer struct {
-	p     index.PostingsIterator
+	index.PostingsIterator
 	seg   index.Segment
 	field int
 	w     bm25
 }
 
 func (s *termScorer) Score() float64 {
-	return s.w.score(s.p.Freq(), s.seg.DocLen(s.p.Doc(), s.field))
-}
-
-func (s *termScorer) Doc() index.DocID {
-	return s.p.Doc()
-}
-
-func (s *termScorer) Advance() index.DocID {
-	return s.p.Advance()
-}
-
-func (s *termScorer) Seek(target index.DocID) index.DocID {
-	return s.p.Seek(target)
+	return s.w.score(s.Freq(), s.seg.DocLen(s.Doc(), s.field))
 }
