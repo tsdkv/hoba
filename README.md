@@ -8,4 +8,8 @@ Work in progress.
 
 ![hoba](docs/hoba-meme.png)
 
-Named after the Russian cat meme: a cat abruptly throws its paw up and declares **«хоба!»** — a sudden, effortless "and there it is."
+Named after the Russian cat meme: a cat abruptly throws its paw up and declares **«хоба!»** — a sudden, effortless "ta-da!"
+
+## License
+
+MIT
