@@ -1,7 +1,6 @@
 package pbt
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -39,7 +38,7 @@ func TestQueryGeneratorValidity(t *testing.T) {
 	})
 }
 
-// WithHitRate(100) every Term leaf names a token present in the indexed docs.
+// WithHitRate(100) every Term and Phrase leaf matches at least one indexed doc.
 func TestQueryGeneratorHits(t *testing.T) {
 	s := testSchema(t)
 	tm := tokenizer.NewManager()
@@ -52,15 +51,15 @@ func TestQueryGeneratorHits(t *testing.T) {
 		for _, doc := range docs {
 			for _, fv := range doc.Fields {
 				f, _ := s.FieldByID(fv.Field)
+				if f.Type != schema.FieldTypeText || !f.Indexed {
+					continue
+				}
 				if present[fv.Field] == nil {
 					present[fv.Field] = map[string]bool{}
 				}
-				if f.Tokenizer == "keyword" {
-					present[fv.Field][fv.Value.Str] = true
-				} else {
-					for _, w := range strings.Fields(fv.Value.Str) {
-						present[fv.Field][w] = true
-					}
+				an, _ := tm.Get(f.Tokenizer)
+				for tok := range an.Tokens(fv.Value.Str) {
+					present[fv.Field][tok.Text] = true
 				}
 			}
 		}
@@ -86,6 +85,7 @@ func TestQueryGeneratorExclusions(t *testing.T) {
 		{"matchAll", []NodeKind{NodeMatchAll}},
 		{"boost", []NodeKind{NodeBoost}},
 		{"boolean", []NodeKind{NodeBoolean}},
+		{"phrase", []NodeKind{NodePhrase}},
 		{"term+boost", []NodeKind{NodeTerm, NodeBoost}},
 	}
 
@@ -103,13 +103,15 @@ func TestQueryGeneratorExclusions(t *testing.T) {
 						require.NotContains(rt, tc.excluded, NodeBoost)
 					case *query.Boolean:
 						require.NotContains(rt, tc.excluded, NodeBoolean)
+					case *query.Phrase:
+						require.NotContains(rt, tc.excluded, NodePhrase)
 					}
 				})
 			})
 		})
 	}
 
-	// no leaf kinds left, so no query can terminate
+	// Term and MatchAll cannot both be excluded.
 	require.Panics(t, func() {
 		QueryGenerator(s, Words, nil, WithExcludedNodes(NodeTerm, NodeMatchAll))
 	})
@@ -134,6 +136,19 @@ func assertValidQuery(t *rapid.T, s *schema.Schema, n query.Node) {
 		require.True(t, ok, "unknown field ID %d", n.FieldID)
 		require.True(t, f.Indexed && f.Type == schema.FieldTypeText, "term on non-searchable field %q", f.Name)
 		require.NotEmpty(t, n.Text)
+	case *query.Phrase:
+		f, ok := s.FieldByID(n.FieldID)
+		require.True(t, ok, "unknown field ID %d", n.FieldID)
+		require.True(t, f.Indexed && f.Type == schema.FieldTypeText && f.Positions, "phrase on field without positions %q", f.Name)
+		require.GreaterOrEqual(t, len(n.Terms), 2)
+		require.Len(t, n.Positions, len(n.Terms))
+		require.Zero(t, n.Positions[0])
+		for i, term := range n.Terms {
+			require.NotEmpty(t, term)
+			if i > 0 {
+				require.Greater(t, n.Positions[i], n.Positions[i-1])
+			}
+		}
 	case *query.Boost:
 		require.Greater(t, n.Factor, 0.0)
 		assertValidQuery(t, s, n.Node)
@@ -157,6 +172,14 @@ func assertQueryHits(t *rapid.T, seg *index.MemSegment, present map[int]map[stri
 	case *query.Term:
 		require.True(t, present[n.FieldID][n.Text], "term %q not in corpus", n.Text)
 		require.Positive(t, seg.DocFreq(n.FieldID, n.Text), "term %q not indexed", n.Text)
+	case *query.Phrase:
+		for _, term := range n.Terms {
+			require.True(t, present[n.FieldID][term], "term %q not in corpus", term)
+			require.Positive(t, seg.DocFreq(n.FieldID, term), "term %q not indexed", term)
+		}
+		w := query.Compile(n, seg)
+		require.NotNil(t, w, "phrase %q has no weight", n.String())
+		require.NotNil(t, w.Scorer(seg), "phrase %q has no hits", n.String())
 	case *query.Boost:
 		assertQueryHits(t, seg, present, n.Node)
 	case *query.Boolean:

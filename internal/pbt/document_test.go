@@ -13,7 +13,7 @@ import (
 
 func testSchema(t *testing.T) *schema.Schema {
 	s, err := schema.NewSchema(
-		schema.TextField("title", schema.Indexed(), schema.Stored()),
+		schema.TextField("title", schema.Indexed(), schema.Stored(), schema.WithPositions()),
 		schema.TextField("code", schema.Indexed(), schema.Keyword()),
 		schema.Int64Field("year", schema.Indexed(), schema.Fast()),
 		schema.TextField("note", schema.Stored()),
