@@ -32,8 +32,12 @@ Rules for anyone (human or agent) changing this repo.
 
 - Inline code beats small helpers; extract a function only when it is
   actually used in several places.
-- Separate logical blocks with a single blank line (gofmt collapses more);
-  in tests: arrange/act/assert.
+- Use blank lines sparingly to separate logical blocks; a single blank line is
+  enough (gofmt collapses consecutive blank lines). Do not pad the start or end
+  of blocks, split a call from its immediate error check, or add blank lines to
+  short, linear code where they do not improve readability. In tests, separate
+  distinct arrange, act, and assert sections; very short tests need no extra
+  spacing.
 
 ## Comments
 
