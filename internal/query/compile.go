@@ -27,7 +27,7 @@ func Compile(q Node, st Stats) Weight {
 	case *Boolean:
 		return newBooleanWeight(st, n.Children)
 	case *Phrase:
-		panic("unimplemented")
+		return newPhraseWeight(st, n)
 	}
 
 	return nil

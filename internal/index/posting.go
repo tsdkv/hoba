@@ -22,6 +22,7 @@ type PostingsIterator interface {
 	// Seek returns the first doc >= target, never moving backwards.
 	Seek(target DocID) DocID
 	Freq() uint32
+	Positions() []uint32
 }
 
 type slicePostings struct {
@@ -53,4 +54,8 @@ func (sp *slicePostings) Freq() uint32 {
 		return 0
 	}
 	return sp.p[sp.cur].Freq
+}
+
+func (sp *slicePostings) Positions() []uint32 {
+	return sp.p[sp.cur].Positions
 }
