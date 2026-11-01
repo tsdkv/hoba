@@ -2,6 +2,7 @@ package query_test
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,15 +25,20 @@ type oracle struct {
 }
 
 type oracleDoc struct {
-	tfs  map[int]map[string]uint32 // field → term → frequency
-	lens map[int]uint32            // field → token count
+	tfs       map[int]map[string]uint32 // field → term → frequency
+	positions map[int]map[string][]int  // field → term → positions
+	lens      map[int]uint32            // field → token count
 }
 
 func newOracle(tm *tokenizer.Manager, s *schema.Schema, docs []schema.Document) *oracle {
 	o := &oracle{dfs: map[int]map[string]int{}, totals: map[int]uint64{}}
 
 	for _, doc := range docs {
-		od := oracleDoc{tfs: map[int]map[string]uint32{}, lens: map[int]uint32{}}
+		od := oracleDoc{
+			tfs:       map[int]map[string]uint32{},
+			positions: map[int]map[string][]int{},
+			lens:      map[int]uint32{},
+		}
 
 		for _, fv := range doc.Fields {
 			f, ok := s.FieldByID(fv.Field)
@@ -46,13 +52,16 @@ func newOracle(tm *tokenizer.Manager, s *schema.Schema, docs []schema.Document) 
 			}
 
 			tfs := map[string]uint32{}
+			positions := map[string][]int{}
 			var n uint32
 			for tok := range a.Tokens(fv.Value.Str) {
 				tfs[tok.Text]++
+				positions[tok.Text] = append(positions[tok.Text], tok.Position)
 				n++
 			}
 
 			od.tfs[fv.Field] = tfs
+			od.positions[fv.Field] = positions
 			od.lens[fv.Field] = n
 			o.totals[fv.Field] += uint64(n)
 
@@ -79,6 +88,40 @@ func (o *oracle) eval(n query.Node, d oracleDoc) (bool, float64) {
 		}
 
 		return true, query.BM25Score(len(o.docs), o.dfs[n.FieldID][n.Text], o.totals[n.FieldID], tf, d.lens[n.FieldID])
+	case *query.Phrase:
+		if len(n.Terms) == 0 {
+			return false, 0
+		}
+		if len(n.Terms) == 1 {
+			return o.eval(&query.Term{FieldID: n.FieldID, Text: n.Terms[0]}, d)
+		}
+
+		var phraseCount uint32
+		for _, start := range d.positions[n.FieldID][n.Terms[0]] {
+			matched := true
+			for i, term := range n.Terms[1:] {
+				position := i + 1
+				if i+1 < len(n.Positions) {
+					position = n.Positions[i+1]
+				}
+				if !slices.Contains(d.positions[n.FieldID][term], start+position) {
+					matched = false
+					break
+				}
+			}
+			if matched {
+				phraseCount++
+			}
+		}
+		if phraseCount == 0 {
+			return false, 0
+		}
+
+		var score float64
+		for _, term := range n.Terms {
+			score += query.BM25Score(len(o.docs), o.dfs[n.FieldID][term], o.totals[n.FieldID], phraseCount, d.lens[n.FieldID])
+		}
+		return true, score
 	case *query.MatchAll:
 		return true, 1
 	case *query.Boost:
@@ -158,6 +201,18 @@ func TestOracleHandComputed(t *testing.T) {
 	require.False(t, matched)
 
 	matched, score = o.eval(q, o.docs[2])
+	require.True(t, matched)
+	assert.InDelta(t, 0.54037438004662641, score, 1e-12)
+
+	phrase := &query.Phrase{FieldID: 0, Terms: []string{"a", "b"}, Positions: []int{0, 1}}
+	matched, score = o.eval(phrase, o.docs[0])
+	require.True(t, matched)
+	assert.InDelta(t, 0.54037438004662641, score, 1e-12)
+
+	matched, _ = o.eval(phrase, o.docs[1])
+	require.False(t, matched)
+
+	matched, score = o.eval(phrase, o.docs[2])
 	require.True(t, matched)
 	assert.InDelta(t, 0.54037438004662641, score, 1e-12)
 

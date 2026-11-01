@@ -69,7 +69,22 @@ func QueryGenerator(sch *schema.Schema, vocab []string, docs []schema.Document, 
 	if cfg.noTerm && cfg.noMatchAll {
 		panic("pbt: WithExcludedNodes cannot exclude both Term and MatchAll")
 	}
+	return rapid.Custom(newQueryGen(sch, vocab, docs, cfg).top)
+}
 
+func PhraseGenerator(sch *schema.Schema, vocab []string, docs []schema.Document, opts ...QueryOption) *rapid.Generator[query.Node] {
+	cfg := queryConfig{hitPct: 80}
+	for _, o := range opts {
+		o(&cfg)
+	}
+	g := newQueryGen(sch, vocab, docs, cfg)
+	if len(g.phraseFields) == 0 {
+		panic("pbt: PhraseGenerator needs an indexed text field with positions")
+	}
+	return rapid.Custom(g.phrase)
+}
+
+func newQueryGen(sch *schema.Schema, vocab []string, docs []schema.Document, cfg queryConfig) *queryGen {
 	g := &queryGen{
 		cfg:          cfg,
 		vocab:        vocab,
@@ -119,8 +134,7 @@ func QueryGenerator(sch *schema.Schema, vocab []string, docs []schema.Document, 
 	}
 
 	g.maxClauses = max(5, len(g.fields)+1)
-
-	return rapid.Custom(g.top)
+	return g
 }
 
 type queryGen struct {
