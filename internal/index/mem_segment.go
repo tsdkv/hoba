@@ -38,32 +38,15 @@ func NewMemSegment(s *schema.Schema, tm *tokenizer.Manager) *MemSegment {
 }
 
 func (m *MemSegment) Add(doc schema.Document) (DocID, error) {
-	seen := make([]bool, len(m.schema.Fields))
+	if err := m.schema.Validate(doc); err != nil {
+		return 0, err
+	}
 	for _, df := range doc.Fields {
-		f, ok := m.schema.FieldByID(df.Field)
-		if !ok {
-			return 0, fmt.Errorf("index: unknown field ID: %d", df.Field)
-		}
-
-		if seen[df.Field] {
-			return 0, fmt.Errorf("index: duplicate field %q", f.Name)
-		}
-		seen[df.Field] = true
-
-		switch f.Type {
-		case schema.FieldTypeInt64:
-			if df.Value.Kind != schema.Int64 {
-				return 0, fmt.Errorf("index: field %q: not an int64 value", f.Name)
-			}
-		case schema.FieldTypeText:
-			if df.Value.Kind != schema.Text {
-				return 0, fmt.Errorf("index: field %q: not a text value", f.Name)
-			}
+		f, _ := m.schema.FieldByID(df.Field)
+		if f.Type == schema.FieldTypeText {
 			if _, ok := m.tm.Get(f.Tokenizer); !ok {
 				return 0, fmt.Errorf("index: unknown tokenizer %q", f.Tokenizer)
 			}
-		default:
-			return 0, fmt.Errorf("index: unexpected field type: %s", f.Type)
 		}
 	}
 
