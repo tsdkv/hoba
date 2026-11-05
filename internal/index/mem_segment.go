@@ -2,23 +2,17 @@ package index
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/tsdkv/hoba/schema"
 	"github.com/tsdkv/hoba/tokenizer"
 )
-
-type termKey struct {
-	field int
-	text  string
-}
 
 var _ Segment = (*MemSegment)(nil)
 
 type MemSegment struct {
 	schema *schema.Schema
 
-	postings map[termKey][]Posting
+	postings *slicePostingsBuffer
 	tm       *tokenizer.Manager
 
 	lens   [][]uint32 // [fieldID][docID] — fieldnorms
@@ -31,7 +25,7 @@ func NewMemSegment(s *schema.Schema, tm *tokenizer.Manager) *MemSegment {
 	return &MemSegment{
 		schema:   s,
 		tm:       tm,
-		postings: map[termKey][]Posting{},
+		postings: newSlicePostingsBuffer(),
 		lens:     make([][]uint32, len(s.Fields)),
 		totals:   make([]uint64, len(s.Fields)),
 	}
@@ -63,12 +57,12 @@ func (m *MemSegment) Add(doc schema.Document) (DocID, error) {
 		}
 		switch f.Type {
 		case schema.FieldTypeInt64:
-			m.appendPosting(termKey{f.ID, EncodeInt64(df.Value.Num)}, docID, 0, false)
+			m.postings.Record(f.ID, EncodeInt64(df.Value.Num), docID, 0, false)
 		case schema.FieldTypeText:
 			an, _ := m.tm.Get(f.Tokenizer) // validated above
 			var n uint32
 			for token := range an.Tokens(df.Value.Str) {
-				m.appendPosting(termKey{f.ID, token.Text}, docID, uint32(token.Position), f.Positions)
+				m.postings.Record(f.ID, token.Text, docID, uint32(token.Position), f.Positions)
 				n++
 			}
 			m.lens[f.ID][docID] = n
@@ -81,11 +75,7 @@ func (m *MemSegment) Add(doc schema.Document) (DocID, error) {
 }
 
 func (m *MemSegment) Postings(field int, term string) (PostingsIterator, bool) {
-	p, ok := m.postings[termKey{field, term}]
-	if !ok {
-		return nil, false
-	}
-	return &slicePostings{p: p}, true
+	return m.postings.Postings(field, term)
 }
 
 func (m *MemSegment) NumDocs() int {
@@ -97,7 +87,7 @@ func (m *MemSegment) Schema() *schema.Schema { return m.schema }
 func (m *MemSegment) TokenizerManager() *tokenizer.Manager { return m.tm }
 
 func (m *MemSegment) DocFreq(field int, term string) int {
-	return len(m.postings[termKey{field, term}])
+	return m.postings.DocFreq(field, term)
 }
 
 func (m *MemSegment) DocLen(doc DocID, field int) uint32 {
@@ -106,27 +96,6 @@ func (m *MemSegment) DocLen(doc DocID, field int) uint32 {
 
 func (m *MemSegment) TotalTokens(field int) uint64 {
 	return m.totals[field]
-}
-
-func (m *MemSegment) appendPosting(k termKey, doc DocID, pos uint32, recordPos bool) {
-	p, ok := m.postings[k]
-	if !ok {
-		// Token text aliases the document; cloning avoids pinning it in memory.
-		k.text = strings.Clone(k.text)
-	}
-	if n := len(p); n > 0 && p[n-1].Doc == doc {
-		p[n-1].Freq++
-		if recordPos {
-			p[n-1].Positions = append(p[n-1].Positions, pos)
-		}
-	} else {
-		posting := Posting{Doc: doc, Freq: 1}
-		if recordPos {
-			posting.Positions = []uint32{pos}
-		}
-		p = append(p, posting)
-	}
-	m.postings[k] = p
 }
 
 func (m *MemSegment) Stored(doc DocID) (schema.Document, bool) {
