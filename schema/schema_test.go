@@ -2,8 +2,10 @@ package schema
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFieldTypeString(t *testing.T) {
@@ -17,33 +19,23 @@ func TestFieldTypeString(t *testing.T) {
 		{FieldType(-1), "FieldType(-1)"},
 	}
 	for _, tc := range tests {
-		if got := tc.ft.String(); got != tc.want {
-			t.Errorf("FieldType(%d).String() = %q, want %q", int(tc.ft), got, tc.want)
-		}
+		assert.Equal(t, tc.want, tc.ft.String(), "FieldType(%d)", int(tc.ft))
 	}
 }
 
 func TestNewSchemaAssignsDenseIDs(t *testing.T) {
 	s, err := NewSchema(TextField("a", Indexed()), TextField("b", Indexed()))
-	if err != nil {
-		t.Fatalf("NewSchema: %v", err)
-	}
+	require.NoError(t, err)
 	for i, f := range s.Fields {
-		if f.ID != i {
-			t.Errorf("Fields[%d].ID = %d", i, f.ID)
-		}
+		assert.Equal(t, i, f.ID, "Fields[%d]", i)
 	}
 }
 
 func TestUnmarshalJSON(t *testing.T) {
 	valid, err := NewSchema(TextField("title", Indexed(), WithPositions()))
-	if err != nil {
-		t.Fatalf("NewSchema: %v", err)
-	}
+	require.NoError(t, err)
 	data, err := json.Marshal(valid)
-	if err != nil {
-		t.Fatalf("Marshal: %v", err)
-	}
+	require.NoError(t, err)
 
 	tests := []struct {
 		name    string
@@ -62,17 +54,11 @@ func TestUnmarshalJSON(t *testing.T) {
 			var s Schema
 			err := json.Unmarshal([]byte(tc.data), &s)
 			if tc.wantErr == "" {
-				if err != nil {
-					t.Fatalf("Unmarshal: %v", err)
-				}
+				require.NoError(t, err)
 				return
 			}
-			if err == nil {
-				t.Fatalf("Unmarshal(%s) expected error, got nil", tc.data)
-			}
-			if !strings.Contains(err.Error(), tc.wantErr) {
-				t.Errorf("Unmarshal(%s) error = %v, want it to mention %q", tc.data, err, tc.wantErr)
-			}
+			require.Error(t, err)
+			assert.ErrorContains(t, err, tc.wantErr)
 		})
 	}
 }

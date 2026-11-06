@@ -71,3 +71,30 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 	s.Fields = raw.Fields
 	return s.index()
 }
+
+func (s *Schema) Validate(doc Document) error {
+	seen := make([]bool, len(s.Fields))
+	for _, df := range doc.Fields {
+		f, ok := s.FieldByID(df.Field)
+		if !ok {
+			return fmt.Errorf("schema: unknown field ID: %d", df.Field)
+		}
+		if seen[df.Field] {
+			return fmt.Errorf("schema: duplicate field %q", f.Name)
+		}
+		seen[df.Field] = true
+		switch f.Type {
+		case FieldTypeInt64:
+			if df.Value.Kind != Int64 {
+				return fmt.Errorf("schema: field %q: not an int64 value", f.Name)
+			}
+		case FieldTypeText:
+			if df.Value.Kind != Text {
+				return fmt.Errorf("schema: field %q: not a text value", f.Name)
+			}
+		default:
+			return fmt.Errorf("schema: unexpected field type: %s", f.Type)
+		}
+	}
+	return nil
+}

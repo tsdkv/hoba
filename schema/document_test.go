@@ -1,10 +1,12 @@
 package schema
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"pgregory.net/rapid"
 )
 
 func TestValidate(t *testing.T) {
@@ -74,12 +76,64 @@ func TestBuildersAppendInOrder(t *testing.T) {
 		{Field: 2, Value: Value{Kind: Int64, Num: 2024}},
 		{Field: 1, Value: Value{Kind: Text, Str: "body text"}},
 	}
-	if len(d.Fields) != len(want) {
-		t.Fatalf("got %d fields, want %d", len(d.Fields), len(want))
-	}
-	for i, w := range want {
-		if d.Fields[i] != w {
-			t.Errorf("Fields[%d] = %+v, want %+v", i, d.Fields[i], w)
+	assert.Equal(t, want, d.Fields)
+}
+
+func TestDocumentSerializationRoundTrip(t *testing.T) {
+	s, err := NewSchema(TextField("title", Stored()), Int64Field("count", Stored()))
+	require.NoError(t, err)
+
+	fieldValueGen := rapid.Custom(func(rt *rapid.T) FieldValue {
+		field := rapid.SampledFrom([]int{0, 1}).Draw(rt, "field")
+		kind := rapid.SampledFrom([]Kind{Text, Int64}).Draw(rt, "kind")
+		value := Value{Kind: kind}
+		if kind == Text {
+			value.Str = rapid.String().Draw(rt, "text")
+		} else {
+			value.Num = rapid.Int64().Draw(rt, "number")
 		}
+		return FieldValue{Field: field, Value: value}
+	})
+
+	rapid.Check(t, func(rt *rapid.T) {
+		doc := Document{Fields: rapid.SliceOf(fieldValueGen).Draw(rt, "fields")}
+		var buf bytes.Buffer
+
+		n, err := doc.Serialize(&buf, s)
+		require.NoError(rt, err)
+		require.Equal(rt, buf.Len(), n)
+
+		got, err := DeserializeDocument(buf.Bytes())
+		require.NoError(rt, err)
+		assert.Equal(rt, doc.Fields, got.Fields)
+	})
+}
+
+func TestDocumentDeserializationRejectsTrailingData(t *testing.T) {
+	doc, err := DeserializeDocument([]byte{0, 0})
+	assert.Nil(t, doc)
+	assert.EqualError(t, err, "unexpected trailing data of length 1")
+}
+
+func BenchmarkDeserializeDocumentText(b *testing.B) {
+	s, err := NewSchema(
+		TextField("title", Stored()),
+		TextField("body", Stored()),
+		TextField("footer", Stored()),
+	)
+	require.NoError(b, err)
+	doc := Document{}
+	doc.Text(0, "hello")
+	doc.Text(1, "bodybody")
+	doc.Text(2, "bodybody")
+	var buf bytes.Buffer
+	_, err = doc.Serialize(&buf, s)
+	require.NoError(b, err)
+	data := buf.Bytes()
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, err := DeserializeDocument(data)
+		require.NoError(b, err)
 	}
 }
