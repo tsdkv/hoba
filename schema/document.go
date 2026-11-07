@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"github.com/tsdkv/hoba/internal/binio"
 )
 
 type Kind uint8
@@ -55,7 +57,8 @@ func (d *Document) Serialize(w io.Writer, schema *Schema) (int, error) {
 		fields++
 	}
 
-	written, err := writeUvarint(w, uint64(fields))
+	var buf [binary.MaxVarintLen64]byte
+	written, err := binio.WriteUvarint(w, uint64(fields), buf[:])
 	if err != nil {
 		return written, fmt.Errorf("write document field count: %w", err)
 	}
@@ -66,13 +69,13 @@ func (d *Document) Serialize(w io.Writer, schema *Schema) (int, error) {
 			continue
 		}
 
-		n, err := writeUvarint(w, uint64(f.Field))
+		n, err := binio.WriteUvarint(w, uint64(f.Field), buf[:])
 		written += n
 		if err != nil {
 			return written, fmt.Errorf("write field %d ID: %w", f.Field, err)
 		}
 
-		n, err = writeBytes(w, []byte{byte(f.Value.Kind)})
+		n, err = binio.WriteBytes(w, []byte{byte(f.Value.Kind)})
 		written += n
 		if err != nil {
 			return written, fmt.Errorf("write field %d kind: %w", f.Field, err)
@@ -80,21 +83,19 @@ func (d *Document) Serialize(w io.Writer, schema *Schema) (int, error) {
 
 		switch f.Value.Kind {
 		case Text:
-			n, err := writeUvarint(w, uint64(len(f.Value.Str)))
+			n, err := binio.WriteUvarint(w, uint64(len(f.Value.Str)), buf[:])
 			written += n
 			if err != nil {
 				return written, fmt.Errorf("write field %d text length: %w", f.Field, err)
 			}
 
-			n, err = writeBytes(w, []byte(f.Value.Str))
+			n, err = binio.WriteBytes(w, []byte(f.Value.Str))
 			written += n
 			if err != nil {
 				return written, fmt.Errorf("write field %d text: %w", f.Field, err)
 			}
 		case Int64:
-			var buf [binary.MaxVarintLen64]byte
-			n := binary.PutVarint(buf[:], f.Value.Num)
-			n, err = writeBytes(w, buf[:n])
+			n, err = binio.WriteVarint(w, f.Value.Num, buf[:])
 			written += n
 			if err != nil {
 				return written, fmt.Errorf("write field %d integer: %w", f.Field, err)
@@ -103,23 +104,6 @@ func (d *Document) Serialize(w io.Writer, schema *Schema) (int, error) {
 	}
 
 	return written, nil
-}
-
-func writeUvarint(w io.Writer, value uint64) (int, error) {
-	var buf [binary.MaxVarintLen64]byte
-	n := binary.PutUvarint(buf[:], value)
-	return writeBytes(w, buf[:n])
-}
-
-func writeBytes(w io.Writer, data []byte) (int, error) {
-	n, err := w.Write(data)
-	if err != nil {
-		return n, err
-	}
-	if n != len(data) {
-		return n, io.ErrShortWrite
-	}
-	return n, nil
 }
 
 func DeserializeDocument(data []byte) (*Document, error) {

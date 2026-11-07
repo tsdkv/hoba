@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+
+	"github.com/tsdkv/hoba/internal/binio"
 )
 
 type CountingWriter struct {
@@ -61,19 +63,20 @@ func (cw *CompositeWriter) ForField(field uint32) io.Writer {
 
 func (cw *CompositeWriter) Finalize() error {
 	var footer bytes.Buffer
+	var buf [binary.MaxVarintLen64]byte
 
-	if err := writeUvarint(&footer, uint64(len(cw.offsets))); err != nil {
+	if _, err := binio.WriteUvarint(&footer, uint64(len(cw.offsets)), buf[:]); err != nil {
 		return err
 	}
 
 	previousOffset := uint64(0)
 	for _, o := range cw.offsets {
-		if err := writeUvarint(&footer, uint64(o.FieldID)); err != nil {
+		if _, err := binio.WriteUvarint(&footer, uint64(o.FieldID), buf[:]); err != nil {
 			return err
 		}
 
 		delta := o.Offset - previousOffset
-		if err := writeUvarint(&footer, uint64(delta)); err != nil {
+		if _, err := binio.WriteUvarint(&footer, uint64(delta), buf[:]); err != nil {
 			return err
 		}
 		previousOffset = o.Offset
@@ -86,13 +89,6 @@ func (cw *CompositeWriter) Finalize() error {
 	var footerLen [4]byte
 	binary.LittleEndian.PutUint32(footerLen[:], uint32(footer.Len()))
 	_, err := cw.file.Write(footerLen[:])
-	return err
-}
-
-func writeUvarint(w io.Writer, value uint64) error {
-	var buf [binary.MaxVarintLen64]byte
-	n := binary.PutUvarint(buf[:], value)
-	_, err := w.Write(buf[:n])
 	return err
 }
 
