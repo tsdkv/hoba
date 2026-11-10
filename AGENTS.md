@@ -2,11 +2,6 @@
 
 Rules for anyone (human or agent) changing this repo.
 
-## General
-
-- A question is not a request for action: if the owner asked something,
-  answer and discuss — don't edit code, files, or git history until told to.
-
 ## Build and test
 
 - `go build ./... && go vet ./... && go test ./...` must pass before committing.
@@ -16,17 +11,10 @@ Rules for anyone (human or agent) changing this repo.
 
 ## Working rules
 
-- The in-memory index is the oracle: every disk structure, merge, or
-  optimisation must match it on random input. Write the oracle test first.
 - Hand-computed expectations for anything numeric — a test asserting
   "whatever the code returned" proves nothing.
 - No optimisation without a benchmark (`go test -bench` next to the code,
   `bench/` for macro).
-- Version every on-disk format and keep `docs/formats.md` in sync. Pre-1.0
-  formats may break, but old ones must be detected, not misread.
-- Keep the public API tiny until there is a second user.
-- Concept unclear? Look at the corresponding Tantivy code first, then write
-  a 20-line test on three documents, then implement.
 
 ## Code style
 
