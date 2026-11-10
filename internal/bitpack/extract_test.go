@@ -26,32 +26,23 @@ func TestExtractRoundTrip(t *testing.T) {
 
 		for i := 0; i < numValues; i++ {
 			var nBits uint8
-			switch rapid.SampledFrom([]int{0, 1, 2, 3}).Draw(rt, "widthRegime") {
+			switch rapid.SampledFrom([]int{0, 1, 2}).Draw(rt, "widthRegime") {
 			case 0:
-				nBits = rapid.SampledFrom([]uint8{0, 1, 2, 7, 8, 9, 56, 57, 63, 64}).Draw(rt, "boundaryWidth")
+				nBits = rapid.SampledFrom([]uint8{0, 1, 2, 7, 8, 9, 55, 56}).Draw(rt, "boundaryWidth")
 			case 1:
 				nBits = uint8(rapid.IntRange(0, 16).Draw(rt, "smallWidth"))
 			case 2:
 				nBits = uint8(rapid.IntRange(17, 56).Draw(rt, "mediumWidth"))
-			case 3:
-				nBits = uint8(rapid.IntRange(57, 64).Draw(rt, "wideWidth"))
 			}
 
 			var value uint64
 			if nBits > 0 {
-				maxValue := ^uint64(0)
-				if nBits < 64 {
-					maxValue = (uint64(1) << nBits) - 1
-				}
+				maxValue := (uint64(1) << nBits) - 1
 				switch rapid.SampledFrom([]int{0, 1, 2}).Draw(rt, "valueRegime") {
 				case 1:
 					value = maxValue
 				case 2:
-					if nBits == 64 {
-						value = rapid.Uint64().Draw(rt, "value64")
-					} else {
-						value = rapid.Uint64Range(0, maxValue).Draw(rt, "value")
-					}
+					value = rapid.Uint64Range(0, maxValue).Draw(rt, "value")
 				}
 			}
 			require.NoError(rt, packer.Write(value, int(nBits)))
@@ -69,10 +60,17 @@ func TestExtractRoundTrip(t *testing.T) {
 	})
 }
 
+func TestExtractRejectsWideValues(t *testing.T) {
+	for _, nBits := range []uint8{57, 64, 255} {
+		_, err := Extract(nil, 0, nBits)
+		assert.Error(t, err, "width %d", nBits)
+	}
+}
+
 var benchmarkExtractResult uint64
 
 func BenchmarkExtract(b *testing.B) {
-	for _, nBits := range []uint8{8, 32, 59, 64} {
+	for _, nBits := range []uint8{8, 32, 56} {
 		b.Run(fmt.Sprintf("bits=%d", nBits), func(b *testing.B) {
 			const numValues = 10000
 			values := make([]uint64, numValues)
