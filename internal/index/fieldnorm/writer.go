@@ -3,6 +3,7 @@ package fieldnorm
 import (
 	"io"
 
+	"github.com/tsdkv/hoba/internal/binio"
 	"github.com/tsdkv/hoba/internal/directory"
 )
 
@@ -49,12 +50,12 @@ func (w *Writer) Serialize(dst io.Writer, numDocs int) error {
 
 		w := cFile.ForField(uint32(field))
 
-		if _, err := w.Write(values); err != nil {
+		if _, err := binio.WriteBytes(w, values); err != nil {
 			return err
 		}
 
 		zeroes := make([]byte, numDocs-len(values))
-		if _, err := w.Write(zeroes); err != nil {
+		if _, err := binio.WriteBytes(w, zeroes); err != nil {
 			return err
 		}
 	}
